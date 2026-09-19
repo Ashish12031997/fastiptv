@@ -48,6 +48,7 @@ captures/
 
 # Keystores & signing keys
 *.jks
+!app/keystore/release.jks
 *.keystore
 *.p12
 *.key

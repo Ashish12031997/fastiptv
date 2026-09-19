@@ -18,10 +18,21 @@ android {
         applicationId = "com.fastiptv"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("keystore/release.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "fastiptvrelease"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "fastiptv"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "fastiptvrelease"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
     }
 
     buildTypes {
@@ -32,10 +43,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
-            applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

@@ -8,9 +8,9 @@ class BuildSanityTest {
 
     @Test
     fun testAppNamespaceAndVersion() {
-        assertEquals("com.fastiptv.debug", BuildConfig.APPLICATION_ID)
-        assertEquals("1.0.1", BuildConfig.VERSION_NAME)
-        assertEquals(2, BuildConfig.VERSION_CODE)
+        assertEquals("com.fastiptv", BuildConfig.APPLICATION_ID)
+        assertEquals("1.0.2", BuildConfig.VERSION_NAME)
+        assertEquals(3, BuildConfig.VERSION_CODE)
     }
 
     @Test
