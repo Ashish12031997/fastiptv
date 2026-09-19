@@ -1,0 +1,85 @@
+name: Release APK & OTA Update
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Release Tag (e.g. v1.0.1)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x ./gradlew
+
+      - name: Run Unit Tests
+        run: ./gradlew testReleaseUnitTest
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Generate Checksums & Update Manifest
+        id: manifest
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version_tag }}" ]; then
+            TAG_NAME="${{ github.event.inputs.version_tag }}"
+          fi
+          if [ -z "$TAG_NAME" ] || [ "$TAG_NAME" = "main" ]; then
+            TAG_NAME="v1.0.0"
+          fi
+          
+          VERSION_CLEAN=$(echo $TAG_NAME | sed 's/^v//')
+          
+          # Checksums
+          cd app/build/outputs/apk/release
+          sha256sum FastIPTV-release.apk > checksums.txt
+          cd -
+          
+          # OTA Manifest
+          cat <<EOF > update-info.json
+          {
+            "versionName": "$VERSION_CLEAN",
+            "downloadUrl": "https://github.com/Ashish12031997/fastiptv/releases/download/$TAG_NAME/FastIPTV-release.apk",
+            "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.manifest.outputs.tag_name }}
+          name: FastIPTV ${{ steps.manifest.outputs.tag_name }}
+          files: |
+            app/build/outputs/apk/release/FastIPTV-release.apk
+            app/build/outputs/apk/release/checksums.txt
+            update-info.json
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
