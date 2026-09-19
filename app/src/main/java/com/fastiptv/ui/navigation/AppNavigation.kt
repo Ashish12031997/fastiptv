@@ -44,7 +44,6 @@ fun AppNavigation(
     val isPlayerRoute = currentRoute?.startsWith("player") == true
 
     val topNavFocusRequester = remember { FocusRequester() }
-    val contentFocusRequester = remember { FocusRequester() }
 
     // Global Remote Back Handling:
     // If not in Player and not already on Home, pressing Back always safely returns to Home.
@@ -62,7 +61,6 @@ fun AppNavigation(
             TopNavBar(
                 currentRoute = currentRoute,
                 topNavFocusRequester = topNavFocusRequester,
-                contentFocusRequester = contentFocusRequester,
                 onNavigate = { targetScreen ->
                     navController.navigate(targetScreen.route) {
                         popUpTo(Screen.Home.route) {
@@ -81,7 +79,6 @@ fun AppNavigation(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .focusRequester(contentFocusRequester)
                 .focusProperties {
                     up = topNavFocusRequester
                 }
@@ -94,8 +91,7 @@ fun AppNavigation(
                     onRecentClick = { recent ->
                         navController.navigate(Screen.Player.createRoute(recent.streamId, recent.title, recent.type))
                     },
-                    topNavFocusRequester = topNavFocusRequester,
-                    contentFocusRequester = contentFocusRequester
+                    topNavFocusRequester = topNavFocusRequester
                 )
             }
             composable(
@@ -114,8 +110,7 @@ fun AppNavigation(
                     onChannelClick = { channel ->
                         navController.navigate(Screen.Player.createRoute(channel.id, channel.name, "live"))
                     },
-                    topNavFocusRequester = topNavFocusRequester,
-                    contentFocusRequester = contentFocusRequester
+                    topNavFocusRequester = topNavFocusRequester
                 )
             }
             composable(Screen.Epg.route) {
@@ -123,8 +118,7 @@ fun AppNavigation(
                     onChannelClick = { channel ->
                         navController.navigate(Screen.Player.createRoute(channel.id, channel.name, "live"))
                     },
-                    topNavFocusRequester = topNavFocusRequester,
-                    contentFocusRequester = contentFocusRequester
+                    topNavFocusRequester = topNavFocusRequester
                 )
             }
             composable(
@@ -187,8 +181,7 @@ fun AppNavigation(
                             )
                         )
                     },
-                    topNavFocusRequester = topNavFocusRequester,
-                    contentFocusRequester = contentFocusRequester
+                    topNavFocusRequester = topNavFocusRequester
                 )
             }
             composable(Screen.Series.route) {
@@ -204,8 +197,7 @@ fun AppNavigation(
                             )
                         )
                     },
-                    topNavFocusRequester = topNavFocusRequester,
-                    contentFocusRequester = contentFocusRequester
+                    topNavFocusRequester = topNavFocusRequester
                 )
             }
             composable(Screen.Favorites.route) {
@@ -254,7 +246,9 @@ fun AppNavigation(
                 )
             }
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(
+                    topNavFocusRequester = topNavFocusRequester
+                )
             }
         }
     }

@@ -17,9 +17,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -46,10 +46,38 @@ import com.fastiptv.ui.theme.LiveRed
 import com.fastiptv.ui.theme.TextMuted
 import com.fastiptv.ui.theme.TextWhite
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+
+enum class SettingsEditingField {
+    NONE, HOST, PORT, USERNAME, PASSWORD
+}
+
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    topNavFocusRequester: FocusRequester? = null,
+    contentFocusRequester: FocusRequester? = null
 ) {
     val currentConfig by viewModel.currentConfig.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
@@ -62,6 +90,30 @@ fun SettingsScreen(
     var port by remember(currentConfig) { mutableStateOf(currentConfig?.port?.toString() ?: "8080") }
     var username by remember(currentConfig) { mutableStateOf(currentConfig?.username ?: "") }
     var password by remember(currentConfig) { mutableStateOf(currentConfig?.password ?: "") }
+
+    var editingField by remember { mutableStateOf(SettingsEditingField.NONE) }
+    val hostFocusRequester = remember { FocusRequester() }
+    val portFocusRequester = remember { FocusRequester() }
+    val usernameFocusRequester = remember { FocusRequester() }
+    val passwordFocusRequester = remember { FocusRequester() }
+    val saveButtonFocusRequester = remember { FocusRequester() }
+
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    BackHandler(enabled = editingField != SettingsEditingField.NONE) {
+        val target = when (editingField) {
+            SettingsEditingField.HOST -> hostFocusRequester
+            SettingsEditingField.PORT -> portFocusRequester
+            SettingsEditingField.USERNAME -> usernameFocusRequester
+            SettingsEditingField.PASSWORD -> passwordFocusRequester
+            SettingsEditingField.NONE -> null
+        }
+        keyboardController?.hide()
+        try {
+            target?.requestFocus()
+        } catch (_: Exception) {}
+        editingField = SettingsEditingField.NONE
+    }
 
     Box(
         modifier = modifier
@@ -93,36 +145,35 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OutlinedTextField(
+                TvCredentialField(
+                    label = "Server Host / URL",
                     value = host,
+                    placeholder = "e.g. your-provider.com",
+                    isEditing = editingField == SettingsEditingField.HOST,
+                    fieldFocusRequester = hostFocusRequester,
+                    upFocusRequester = topNavFocusRequester,
+                    rightFocusRequester = portFocusRequester,
+                    downFocusRequester = usernameFocusRequester,
                     onValueChange = { host = it },
-                    label = { Text("Server Host / URL (e.g. iptv.example.com)") },
-                    modifier = Modifier.weight(3f),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = TextMuted,
-                        focusedLabelColor = AccentBlue,
-                        unfocusedLabelColor = TextMuted
-                    ),
-                    singleLine = true
+                    onClickToEdit = { editingField = SettingsEditingField.HOST },
+                    onDoneEditing = { editingField = SettingsEditingField.NONE },
+                    modifier = Modifier.weight(3f)
                 )
 
-                OutlinedTextField(
+                TvCredentialField(
+                    label = "Port",
                     value = port,
+                    placeholder = "8080",
+                    isEditing = editingField == SettingsEditingField.PORT,
+                    keyboardType = KeyboardType.Number,
+                    fieldFocusRequester = portFocusRequester,
+                    upFocusRequester = topNavFocusRequester,
+                    leftFocusRequester = hostFocusRequester,
+                    downFocusRequester = passwordFocusRequester,
                     onValueChange = { port = it },
-                    label = { Text("Port") },
-                    modifier = Modifier.weight(1f),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = TextMuted,
-                        focusedLabelColor = AccentBlue,
-                        unfocusedLabelColor = TextMuted
-                    ),
-                    singleLine = true
+                    onClickToEdit = { editingField = SettingsEditingField.PORT },
+                    onDoneEditing = { editingField = SettingsEditingField.NONE },
+                    modifier = Modifier.weight(1f)
                 )
             }
 
@@ -130,84 +181,97 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OutlinedTextField(
+                TvCredentialField(
+                    label = "Username",
                     value = username,
+                    placeholder = "Enter username",
+                    isEditing = editingField == SettingsEditingField.USERNAME,
+                    fieldFocusRequester = usernameFocusRequester,
+                    upFocusRequester = hostFocusRequester,
+                    rightFocusRequester = passwordFocusRequester,
+                    downFocusRequester = saveButtonFocusRequester,
                     onValueChange = { username = it },
-                    label = { Text("Username") },
-                    modifier = Modifier.weight(1f),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = TextMuted,
-                        focusedLabelColor = AccentBlue,
-                        unfocusedLabelColor = TextMuted
-                    ),
-                    singleLine = true
+                    onClickToEdit = { editingField = SettingsEditingField.USERNAME },
+                    onDoneEditing = { editingField = SettingsEditingField.NONE },
+                    modifier = Modifier.weight(1f)
                 )
 
-                OutlinedTextField(
+                TvCredentialField(
+                    label = "Password",
                     value = password,
+                    placeholder = "Enter password",
+                    isEditing = editingField == SettingsEditingField.PASSWORD,
+                    isPassword = true,
+                    keyboardType = KeyboardType.Password,
+                    fieldFocusRequester = passwordFocusRequester,
+                    upFocusRequester = portFocusRequester,
+                    leftFocusRequester = usernameFocusRequester,
+                    downFocusRequester = saveButtonFocusRequester,
                     onValueChange = { password = it },
-                    label = { Text("Password") },
-                    modifier = Modifier.weight(1f),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        focusedBorderColor = AccentBlue,
-                        unfocusedBorderColor = TextMuted,
-                        focusedLabelColor = AccentBlue,
-                        unfocusedLabelColor = TextMuted
-                    ),
-                    singleLine = true
+                    onClickToEdit = { editingField = SettingsEditingField.PASSWORD },
+                    onDoneEditing = { editingField = SettingsEditingField.NONE },
+                    modifier = Modifier.weight(1f)
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                androidx.compose.material3.Button(
+                Button(
                     onClick = {
                         viewModel.saveConfig(host, port, username, password)
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = AccentBlue
+                    modifier = Modifier
+                        .focusRequester(saveButtonFocusRequester)
+                        .focusProperties {
+                            up = usernameFocusRequester
+                        },
+                    colors = ButtonDefaults.colors(
+                        containerColor = AccentBlue,
+                        focusedContainerColor = Color(0xFF2563EB),
+                        contentColor = TextWhite,
+                        focusedContentColor = TextWhite
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = ButtonDefaults.shape(RoundedCornerShape(8.dp))
                 ) {
                     Text(
                         text = if (isLoading) "Testing Connection..." else "Save & Connect",
-                        color = TextWhite,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
-                androidx.compose.material3.Button(
+                Button(
                     onClick = {
                         viewModel.refreshAllCategories()
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = DarkSurfaceElevated
+                    colors = ButtonDefaults.colors(
+                        containerColor = DarkSurfaceElevated,
+                        focusedContainerColor = AccentBlue,
+                        contentColor = TextWhite,
+                        focusedContentColor = TextWhite
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = ButtonDefaults.shape(RoundedCornerShape(8.dp))
                 ) {
-                    Text(text = "Sync Content", color = TextWhite)
+                    Text(text = "Sync Content")
                 }
 
-                androidx.compose.material3.Button(
+                Button(
                     onClick = {
                         viewModel.clearSession()
                         host = ""
-                        port = "80"
+                        port = "8080"
                         username = ""
                         password = ""
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = DarkSurface
+                    colors = ButtonDefaults.colors(
+                        containerColor = DarkSurface,
+                        focusedContainerColor = LiveRed.copy(alpha = 0.85f),
+                        contentColor = LiveRed,
+                        focusedContentColor = TextWhite
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = ButtonDefaults.shape(RoundedCornerShape(8.dp))
                 ) {
-                    Text(text = "Clear Credentials", color = LiveRed)
+                    Text(text = "Clear Credentials")
                 }
             }
 
@@ -520,6 +584,182 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvCredentialField(
+    label: String,
+    value: String,
+    placeholder: String,
+    isEditing: Boolean,
+    isPassword: Boolean = false,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    fieldFocusRequester: FocusRequester,
+    upFocusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
+    leftFocusRequester: FocusRequester? = null,
+    rightFocusRequester: FocusRequester? = null,
+    onValueChange: (String) -> Unit,
+    onClickToEdit: () -> Unit,
+    onDoneEditing: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val editTextFieldFocusRequester = remember { FocusRequester() }
+    var isFocused by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(isEditing) {
+        if (isEditing) {
+            try {
+                editTextFieldFocusRequester.requestFocus()
+                keyboardController?.show()
+            } catch (_: Exception) {}
+        }
+    }
+
+    val handleDone: () -> Unit = {
+        keyboardController?.hide()
+        try {
+            fieldFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+        onDoneEditing()
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isFocused || isEditing) Color(0xFF1E293B) else DarkSurface)
+            .border(
+                width = if (isFocused || isEditing) 2.5.dp else 1.dp,
+                color = if (isFocused || isEditing) Color(0xFF60A5FA) else Color.White.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(10.dp)
+            )
+            .focusRequester(fieldFocusRequester)
+            .onFocusChanged { isFocused = it.isFocused || it.hasFocus }
+            .focusProperties {
+                if (!isEditing) {
+                    upFocusRequester?.let { up = it }
+                    downFocusRequester?.let { down = it }
+                    leftFocusRequester?.let { left = it }
+                    rightFocusRequester?.let { right = it }
+                }
+            }
+            .focusable()
+            .clickable {
+                if (!isEditing) {
+                    onClickToEdit()
+                }
+            }
+            .onKeyEvent { event ->
+                if (!isEditing && event.type == KeyEventType.KeyUp && (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)) {
+                    onClickToEdit()
+                    true
+                } else {
+                    false
+                }
+            }
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isFocused || isEditing) Color(0xFF60A5FA) else TextMuted,
+                    fontWeight = if (isFocused || isEditing) FontWeight.Bold else FontWeight.Medium
+                )
+                if (isEditing) {
+                    Text(
+                        text = "Press Done or Back to save",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AccentBlue,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                } else if (isFocused) {
+                    Text(
+                        text = "⏎ Press OK to edit",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF60A5FA),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            if (isEditing) {
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(editTextFieldFocusRequester)
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyUp && (event.key == Key.Enter || event.key == Key.NumPadEnter)) {
+                                handleDone()
+                                true
+                            } else if (event.type == KeyEventType.KeyUp && event.key == Key.Back) {
+                                handleDone()
+                                true
+                            } else {
+                                false
+                            }
+                        },
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = TextWhite,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    cursorBrush = SolidColor(AccentBlue),
+                    singleLine = true,
+                    visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = keyboardType,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { handleDone() }
+                    ),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (value.isEmpty()) {
+                                Text(
+                                    text = placeholder,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextMuted.copy(alpha = 0.5f)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
+            } else {
+                val displayValue = when {
+                    value.isEmpty() -> placeholder
+                    isPassword -> "•".repeat(minOf(value.length, 24))
+                    else -> value
+                }
+
+                Text(
+                    text = displayValue,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (value.isEmpty()) TextMuted.copy(alpha = 0.5f) else TextWhite,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
             }
         }
     }

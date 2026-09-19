@@ -133,9 +133,14 @@ fun TopNavBar(
                     Tab(
                         selected = isSelected,
                         onFocus = {
-                            selectedTabIndex = index
                             if (currentRoute != navItem.screen.route) {
-                                onNavigate(navItem.screen)
+                                val diff = kotlin.math.abs(index - activeIndex)
+                                if (diff <= 1) {
+                                    selectedTabIndex = index
+                                    onNavigate(navItem.screen)
+                                }
+                            } else {
+                                selectedTabIndex = index
                             }
                         },
                         onClick = {
@@ -153,11 +158,6 @@ fun TopNavBar(
                         ),
                         modifier = Modifier
                             .then(if (isSelected && topNavFocusRequester != null) Modifier.focusRequester(topNavFocusRequester) else Modifier)
-                            .focusProperties {
-                                if (contentFocusRequester != null) {
-                                    down = contentFocusRequester
-                                }
-                            }
                     ) {
                         Text(
                             text = navItem.label,
