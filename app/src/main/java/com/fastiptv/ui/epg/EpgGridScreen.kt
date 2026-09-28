@@ -43,6 +43,11 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,6 +73,7 @@ import com.fastiptv.ui.theme.GlassBorder
 import com.fastiptv.ui.theme.LiveRed
 import com.fastiptv.ui.theme.TextMuted
 import com.fastiptv.ui.theme.TextWhite
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -92,6 +98,8 @@ fun EpgGridScreen(
     val gridFirstItemFocusRequester = remember { FocusRequester() }
     val sidebarFocusRequester = contentFocusRequester ?: remember { FocusRequester() }
     val spotlightWatchFocusRequester = remember { FocusRequester() }
+    val modalWatchButtonFocusRequester = remember { FocusRequester() }
+    val modalCloseButtonFocusRequester = remember { FocusRequester() }
 
     var isGridFocused by remember { mutableStateOf(false) }
     var isSidebarFocused by remember { mutableStateOf(false) }
@@ -120,16 +128,42 @@ fun EpgGridScreen(
         }
     }
 
+    // Remote focus management when program detail modal opens/closes
+    LaunchedEffect(selectedProgram) {
+        if (selectedProgram != null) {
+            // Transfer focus directly to the "Watch Channel" action button inside the modal
+            repeat(6) {
+                delay(40)
+                try {
+                    modalWatchButtonFocusRequester.requestFocus()
+                } catch (_: Exception) {}
+            }
+        } else {
+            // Modal was closed, ensure focus safely returns to the EPG grid
+            delay(60)
+            try {
+                if (!isGridFocused && !isSidebarFocused) {
+                    gridFirstItemFocusRequester.requestFocus()
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     // Remote Back button:
-    // 1. If user is browsing inside the EPG grid, Back returns focus to the category sidebar
-    // 2. If user is browsing inside the sidebar, Back focuses the TopNavBar active tab (TV Guide)
-    BackHandler(enabled = isGridFocused) {
+    // 1. If program detail modal is open, Back dismisses the modal
+    // 2. If user is browsing inside the EPG grid, Back returns focus to the category sidebar
+    // 3. If user is browsing inside the sidebar, Back focuses the TopNavBar active tab (TV Guide)
+    BackHandler(enabled = selectedProgram != null) {
+        viewModel.dismissProgramDetail()
+    }
+
+    BackHandler(enabled = selectedProgram == null && isGridFocused) {
         try {
             sidebarFocusRequester.requestFocus()
         } catch (_: Exception) {}
     }
 
-    BackHandler(enabled = isSidebarFocused && !isGridFocused) {
+    BackHandler(enabled = selectedProgram == null && isSidebarFocused && !isGridFocused) {
         try {
             topNavFocusRequester?.requestFocus()
         } catch (_: Exception) {}
@@ -162,7 +196,13 @@ fun EpgGridScreen(
                 }
             }
         } else {
-            Row(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .focusProperties {
+                        canFocus = selectedProgram == null
+                    }
+            ) {
                 // Left Column: Modern Glassmorphic Category Sidebar with Search & Group Selector
                 CatalogCategorySidebar(
                     categories = categories,
@@ -358,6 +398,8 @@ fun EpgGridScreen(
                 EpgProgramDetailModal(
                     channel = channel,
                     program = program,
+                    watchButtonFocusRequester = modalWatchButtonFocusRequester,
+                    closeButtonFocusRequester = modalCloseButtonFocusRequester,
                     onWatchNow = {
                         viewModel.dismissProgramDetail()
                         onChannelClick(channel)
@@ -774,24 +816,40 @@ private fun ChannelGridRow(
 private fun EpgProgramDetailModal(
     channel: Channel,
     program: EpgProgram,
+    watchButtonFocusRequester: FocusRequester,
+    closeButtonFocusRequester: FocusRequester,
     onWatchNow: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Secondary safety: ensure primary action button requests focus once composable attaches
+    LaunchedEffect(Unit) {
+        delay(50)
+        try {
+            watchButtonFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.75f))
-            .clickable { onDismiss() },
+            .background(Color.Black.copy(alpha = 0.80f))
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyUp && (event.key == Key.Back || event.key == Key.Escape)) {
+                    onDismiss()
+                    true
+                } else {
+                    false
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .width(520.dp)
+                .width(540.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color(0xF2121724))
-                .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
+                .border(2.dp, Color(0xFF38BDF8).copy(alpha = 0.4f), RoundedCornerShape(20.dp))
                 .padding(28.dp)
-                .clickable(enabled = false) {}
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -873,13 +931,21 @@ private fun EpgProgramDetailModal(
                         onClick = onWatchNow,
                         colors = ButtonDefaults.colors(
                             containerColor = AccentBlue,
-                            focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
+                            focusedContainerColor = Color(0xFF2563EB)
                         ),
                         border = ButtonDefaults.border(
-                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                            focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
                         ),
                         shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp)),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(watchButtonFocusRequester)
+                            .focusProperties {
+                                right = closeButtonFocusRequester
+                                up = FocusRequester.Cancel
+                                down = FocusRequester.Cancel
+                                left = FocusRequester.Cancel
+                            }
                     ) {
                         Text(
                             text = "▶ Watch Channel",
@@ -890,14 +956,27 @@ private fun EpgProgramDetailModal(
                     Button(
                         onClick = onDismiss,
                         colors = ButtonDefaults.colors(
-                            containerColor = DarkSurfaceElevated
+                            containerColor = DarkSurfaceElevated,
+                            focusedContainerColor = Color(0xFF1E293B)
                         ),
                         border = ButtonDefaults.border(
-                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                            focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
                         ),
-                        shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp))
+                        shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp)),
+                        modifier = Modifier
+                            .focusRequester(closeButtonFocusRequester)
+                            .focusProperties {
+                                left = watchButtonFocusRequester
+                                up = FocusRequester.Cancel
+                                down = FocusRequester.Cancel
+                                right = FocusRequester.Cancel
+                            }
                     ) {
-                        Text(text = "Close", color = TextWhite)
+                        Text(
+                            text = "Close",
+                            color = TextWhite,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }

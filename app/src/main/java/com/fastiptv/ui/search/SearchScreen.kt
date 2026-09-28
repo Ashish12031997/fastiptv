@@ -35,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +101,18 @@ fun SearchScreen(
     val isLoadingDetail by viewModel.isLoadingDetail.collectAsState()
 
     var selectedSeasonNumber by remember(selectedSeries) { mutableStateOf("1") }
+    val seriesDetailCloseButtonFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(selectedSeries) {
+        if (selectedSeries != null) {
+            repeat(5) {
+                delay(40)
+                try {
+                    seriesDetailCloseButtonFocusRequester.requestFocus()
+                } catch (_: Exception) {}
+            }
+        }
+    }
 
     BackHandler(enabled = selectedSeries != null) {
         viewModel.closeSeriesDetail()
@@ -110,6 +127,9 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 32.dp, vertical = 12.dp)
+                .focusProperties {
+                    canFocus = selectedSeries == null
+                }
         ) {
             // Search Bar & Filter Controls
             Row(
@@ -519,7 +539,11 @@ fun SearchScreen(
                                     containerColor = DarkSurfaceElevated,
                                     focusedContainerColor = AccentBlue
                                 ),
-                                shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
+                                border = ButtonDefaults.border(
+                                    focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                                ),
+                                shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp)),
+                                modifier = Modifier.focusRequester(seriesDetailCloseButtonFocusRequester)
                             ) {
                                 Text(text = "✕ Close", color = TextWhite, fontSize = 13.sp)
                             }
