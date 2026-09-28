@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
@@ -327,9 +328,11 @@ fun MoviesScreen(
                                             containerColor = AccentBlue,
                                             focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
                                         ),
+                                        border = ButtonDefaults.border(
+                                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                                        ),
                                         shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                        modifier = Modifier.clickable { onMovieClick(movie) }
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                     ) {
                                         Text(
                                             text = "▶ Watch",

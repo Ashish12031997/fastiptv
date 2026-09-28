@@ -1,5 +1,6 @@
 package com.fastiptv.ui.favorites
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.tv.material3.Border
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.MaterialTheme
@@ -44,6 +46,7 @@ import com.fastiptv.ui.theme.AccentBlue
 import com.fastiptv.ui.theme.DarkBackground
 import com.fastiptv.ui.theme.DarkSurface
 import com.fastiptv.ui.theme.DarkSurfaceElevated
+import com.fastiptv.ui.theme.GlassBorder
 import com.fastiptv.ui.theme.TextMuted
 import com.fastiptv.ui.theme.TextWhite
 
@@ -181,12 +184,16 @@ private fun FavoriteTabPill(
 ) {
     Card(
         onClick = onClick,
+        scale = CardDefaults.scale(focusedScale = 1.06f),
         colors = CardDefaults.colors(
             containerColor = if (isSelected) AccentBlue else DarkSurface,
-            focusedContainerColor = if (isSelected) AccentBlue.copy(alpha = 0.85f) else DarkSurfaceElevated
+            focusedContainerColor = if (isSelected) Color(0xFF2563EB) else Color(0xFF1E293B)
         ),
-        shape = CardDefaults.shape(shape = RoundedCornerShape(20.dp)),
-        modifier = Modifier.clickable { onClick() }
+        border = CardDefaults.border(
+            border = Border(border = BorderStroke(1.dp, GlassBorder)),
+            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+        ),
+        shape = CardDefaults.shape(shape = RoundedCornerShape(20.dp))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

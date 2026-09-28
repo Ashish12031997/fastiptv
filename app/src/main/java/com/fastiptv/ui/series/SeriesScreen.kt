@@ -349,9 +349,11 @@ fun SeriesScreen(
                                             containerColor = AccentBlue,
                                             focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
                                         ),
+                                        border = ButtonDefaults.border(
+                                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                                        ),
                                         shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                        modifier = Modifier.clickable { viewModel.openSeriesDetail(series) }
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                                     ) {
                                         Text(
                                             text = "View Episodes",
@@ -583,15 +585,15 @@ fun EpisodeRow(
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth(),
+        scale = CardDefaults.scale(focusedScale = 1.02f),
         colors = CardDefaults.colors(
             containerColor = DarkSurface,
-            focusedContainerColor = DarkSurfaceElevated
+            focusedContainerColor = Color(0xFF1E293B)
         ),
         border = CardDefaults.border(
-            focusedBorder = Border(border = BorderStroke(2.dp, AccentBlue))
+            border = Border(border = BorderStroke(1.dp, Color(0x33FFFFFF))),
+            focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
         ),
         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
     ) {

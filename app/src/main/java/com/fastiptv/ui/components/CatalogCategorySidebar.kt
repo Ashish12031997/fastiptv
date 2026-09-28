@@ -157,12 +157,12 @@ fun CatalogCategorySidebar(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(36.dp)
+                        .height(38.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (isFilterBoxFocused) DarkSurfaceElevated else DarkSurface)
+                        .background(if (isFilterBoxFocused) Color(0xFF1E293B) else DarkSurface)
                         .border(
-                            width = if (isFilterBoxFocused) 2.dp else 1.dp,
-                            color = if (isFilterBoxFocused) AccentBlue else GlassBorder,
+                            width = if (isFilterBoxFocused) 2.5.dp else 1.dp,
+                            color = if (isFilterBoxFocused) Color(0xFF38BDF8) else GlassBorder,
                             shape = RoundedCornerShape(8.dp)
                         )
                         .focusRequester(filterBoxFocusRequester)
@@ -300,6 +300,7 @@ fun CatalogCategorySidebar(
             ) {
                 itemsIndexed(filteredCategories, key = { _, item -> item.category.id }) { index, item ->
                     val isSelected = item.category.id == selectedCategory?.id
+                    var isItemFocused by remember { mutableStateOf(false) }
 
                     val itemModifier = Modifier
                         .fillMaxWidth()
@@ -320,23 +321,26 @@ fun CatalogCategorySidebar(
                                 right = contentFocusRequester
                             }
                         }
-                        .clickable { onSelectCategory(item.category) }
+                        .onFocusChanged { state ->
+                            isItemFocused = state.isFocused
+                        }
 
                     Card(
                         onClick = { onSelectCategory(item.category) },
                         modifier = itemModifier,
+                        scale = CardDefaults.scale(focusedScale = 1.04f),
                         colors = CardDefaults.colors(
-                            containerColor = if (isSelected) AccentBlue.copy(alpha = 0.18f) else Color.Transparent,
-                            focusedContainerColor = DarkSurfaceElevated
+                            containerColor = if (isSelected) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color.Transparent,
+                            focusedContainerColor = Color(0xFF1E3A8A)
                         ),
                         border = CardDefaults.border(
                             border = Border(
                                 border = BorderStroke(
                                     1.dp,
-                                    if (isSelected) AccentBlue.copy(alpha = 0.5f) else Color.Transparent
+                                    if (isSelected) Color(0xFF38BDF8).copy(alpha = 0.6f) else Color.Transparent
                                 )
                             ),
-                            focusedBorder = Border(border = BorderStroke(2.dp, AccentBlue))
+                            focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
                         ),
                         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
                     ) {
@@ -347,8 +351,16 @@ fun CatalogCategorySidebar(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Glowing indicator bar if active
-                            if (isSelected) {
+                            // Glowing indicator bar if active or focused
+                            if (isItemFocused) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(4.dp)
+                                        .height(24.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(Color(0xFF38BDF8))
+                                )
+                            } else if (isSelected) {
                                 Box(
                                     modifier = Modifier
                                         .width(3.dp)
@@ -369,9 +381,17 @@ fun CatalogCategorySidebar(
                                 Text(
                                     text = item.cleanName,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) TextWhite else TextMuted,
-                                    fontSize = 12.sp,
+                                    fontWeight = when {
+                                        isItemFocused -> FontWeight.Black
+                                        isSelected -> FontWeight.Bold
+                                        else -> FontWeight.Medium
+                                    },
+                                    color = when {
+                                        isItemFocused -> Color.White
+                                        isSelected -> TextWhite
+                                        else -> TextMuted
+                                    },
+                                    fontSize = if (isItemFocused) 13.sp else 12.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -379,7 +399,7 @@ fun CatalogCategorySidebar(
                                     Text(
                                         text = item.groupName,
                                         fontSize = 9.sp,
-                                        color = AccentBlue.copy(alpha = 0.7f),
+                                        color = if (isItemFocused) Color(0xFF93C5FD) else AccentBlue.copy(alpha = 0.7f),
                                         fontWeight = FontWeight.SemiBold,
                                         maxLines = 1
                                     )

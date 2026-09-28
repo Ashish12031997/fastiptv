@@ -13,9 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -35,9 +40,6 @@ import com.fastiptv.ui.theme.DarkSurfaceElevated
 import com.fastiptv.ui.theme.TextMuted
 import com.fastiptv.ui.theme.TextWhite
 
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.focus.onFocusChanged
-
 @Composable
 fun SeriesCard(
     series: Series,
@@ -45,26 +47,27 @@ fun SeriesCard(
     modifier: Modifier = Modifier,
     onFocus: ((Series) -> Unit)? = null
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+
     Card(
         onClick = { onClick(series) },
         modifier = modifier
             .width(150.dp)
             .height(225.dp)
-            .clickable { onClick(series) }
-            .then(
-                if (onFocus != null) {
-                    Modifier.onFocusChanged { state ->
-                        if (state.isFocused) onFocus(series)
-                    }
-                } else Modifier
-            ),
-        scale = CardDefaults.scale(focusedScale = 1.10f),
+            .onFocusChanged { state ->
+                isFocused = state.isFocused
+                if (state.isFocused) {
+                    onFocus?.invoke(series)
+                }
+            },
+        scale = CardDefaults.scale(focusedScale = 1.08f),
         border = CardDefaults.border(
-            focusedBorder = Border(border = BorderStroke(3.5.dp, Color(0xFF60A5FA)))
+            border = Border(border = BorderStroke(1.dp, Color(0x33FFFFFF))),
+            focusedBorder = Border(border = BorderStroke(3.5.dp, Color(0xFF38BDF8)))
         ),
         colors = CardDefaults.colors(
             containerColor = DarkSurface,
-            focusedContainerColor = DarkSurfaceElevated
+            focusedContainerColor = Color(0xFF1E293B)
         ),
         shape = CardDefaults.shape(shape = RoundedCornerShape(12.dp))
     ) {
@@ -144,7 +147,11 @@ fun SeriesCard(
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.95f))
+                            colors = if (isFocused) {
+                                listOf(Color.Transparent, Color(0xD90F172A), Color(0xF21E293B))
+                            } else {
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.95f))
+                            }
                         )
                     )
                     .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -153,9 +160,9 @@ fun SeriesCard(
                 Column {
                     Text(
                         text = series.name,
-                        color = TextWhite,
+                        color = Color.White,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = if (isFocused) FontWeight.ExtraBold else FontWeight.SemiBold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         lineHeight = 15.sp

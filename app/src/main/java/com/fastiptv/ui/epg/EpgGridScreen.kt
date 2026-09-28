@@ -383,15 +383,14 @@ private fun EpgSpotlightBar(
         onClick = onWatchNow,
         modifier = modifier
             .fillMaxWidth()
-            .height(58.dp)
-            .clickable { onWatchNow() },
+            .height(58.dp),
         colors = CardDefaults.colors(
             containerColor = DarkSurface.copy(alpha = 0.85f),
-            focusedContainerColor = DarkSurfaceElevated
+            focusedContainerColor = Color(0xFF1E293B)
         ),
         border = CardDefaults.border(
             border = Border(border = BorderStroke(1.dp, GlassBorder)),
-            focusedBorder = Border(border = BorderStroke(1.5.dp, AccentBlue))
+            focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
         ),
         shape = CardDefaults.shape(shape = RoundedCornerShape(12.dp))
     ) {
@@ -487,11 +486,13 @@ private fun EpgSpotlightBar(
                         .focusRequester(watchFocusRequester)
                         .focusProperties {
                             down = gridFocusRequester
-                        }
-                        .clickable { onWatchNow() },
+                        },
                     colors = ButtonDefaults.colors(
                         containerColor = AccentBlue,
                         focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
+                    ),
+                    border = ButtonDefaults.border(
+                        focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                     ),
                     shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
                 ) {
@@ -507,13 +508,12 @@ private fun EpgSpotlightBar(
                 if (program != null) {
                     Button(
                         onClick = { onShowDetails(program) },
-                        modifier = Modifier.clickable { onShowDetails(program) },
                         colors = ButtonDefaults.colors(
                             containerColor = DarkSurfaceElevated
                         ),
                         border = ButtonDefaults.border(
                             border = Border(border = BorderStroke(1.dp, GlassBorder)),
-                            focusedBorder = Border(border = BorderStroke(1.5.dp, AccentBlue))
+                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                         ),
                         shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
                     ) {
@@ -558,7 +558,6 @@ private fun ChannelGridRow(
             modifier = modifier
                 .width(180.dp)
                 .height(72.dp)
-                .clickable { onChannelClick() }
                 .focusProperties {
                     if (upFocusRequester != null) {
                         up = upFocusRequester
@@ -575,11 +574,11 @@ private fun ChannelGridRow(
                 },
             colors = CardDefaults.colors(
                 containerColor = DarkSurface,
-                focusedContainerColor = DarkSurfaceElevated
+                focusedContainerColor = Color(0xFF1E293B)
             ),
             border = CardDefaults.border(
                 border = Border(border = BorderStroke(0.5.dp, GlassBorder)),
-                focusedBorder = Border(border = BorderStroke(2.dp, AccentBlue))
+                focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
             ),
             shape = CardDefaults.shape(shape = RoundedCornerShape(0.dp))
         ) {
@@ -653,7 +652,6 @@ private fun ChannelGridRow(
                         .width(totalWidth)
                         .height(64.dp)
                         .padding(horizontal = 4.dp)
-                        .clickable { onChannelClick() }
                         .onFocusChanged { focusState ->
                             if (focusState.isFocused) {
                                 onRowFocused(channel, null)
@@ -661,11 +659,11 @@ private fun ChannelGridRow(
                         },
                     colors = CardDefaults.colors(
                         containerColor = DarkSurfaceElevated.copy(alpha = 0.5f),
-                        focusedContainerColor = DarkSurfaceElevated
+                        focusedContainerColor = Color(0xFF1E293B)
                     ),
                     border = CardDefaults.border(
                         border = Border(border = BorderStroke(1.dp, GlassBorder)),
-                        focusedBorder = Border(border = BorderStroke(2.dp, AccentBlue))
+                        focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
                     ),
                     shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
                 ) {
@@ -701,7 +699,6 @@ private fun ChannelGridRow(
                             .width(widthDp)
                             .height(64.dp)
                             .padding(horizontal = 4.dp)
-                            .clickable { onProgramClick(program) }
                             .onFocusChanged { focusState ->
                                 if (focusState.isFocused) {
                                     onRowFocused(channel, program)
@@ -709,7 +706,7 @@ private fun ChannelGridRow(
                             },
                         colors = CardDefaults.colors(
                             containerColor = if (program.isNowPlaying) Color(0xFF161F33) else DarkSurface,
-                            focusedContainerColor = DarkSurfaceElevated
+                            focusedContainerColor = Color(0xFF1E293B)
                         ),
                         border = CardDefaults.border(
                             border = Border(
@@ -718,7 +715,7 @@ private fun ChannelGridRow(
                                     if (program.isNowPlaying) AccentBlue.copy(alpha = 0.8f) else GlassBorder
                                 )
                             ),
-                            focusedBorder = Border(border = BorderStroke(2.dp, AccentBlue))
+                            focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
                         ),
                         shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
                     ) {
@@ -878,10 +875,11 @@ private fun EpgProgramDetailModal(
                             containerColor = AccentBlue,
                             focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
                         ),
+                        border = ButtonDefaults.border(
+                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                        ),
                         shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp)),
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onWatchNow() }
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text(
                             text = "▶ Watch Channel",
@@ -894,8 +892,10 @@ private fun EpgProgramDetailModal(
                         colors = ButtonDefaults.colors(
                             containerColor = DarkSurfaceElevated
                         ),
-                        shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp)),
-                        modifier = Modifier.clickable { onDismiss() }
+                        border = ButtonDefaults.border(
+                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                        ),
+                        shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp))
                     ) {
                         Text(text = "Close", color = TextWhite)
                     }

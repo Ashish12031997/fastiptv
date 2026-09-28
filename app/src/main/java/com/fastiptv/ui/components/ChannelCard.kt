@@ -2,7 +2,6 @@ package com.fastiptv.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,9 +16,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,7 +47,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.focus.onFocusChanged
 import com.fastiptv.ui.theme.GlassBorder
-import com.fastiptv.ui.theme.LiveRedGlow
 
 @Composable
 fun ChannelCard(
@@ -53,42 +55,52 @@ fun ChannelCard(
     modifier: Modifier = Modifier,
     onFocus: () -> Unit = {}
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "live_pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 800),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_alpha"
-    )
+    var isCardFocused by remember { mutableStateOf(false) }
+
+    // Optimization: Only run continuous pulse animation on the single focused card
+    // Non-focused cards render static alpha to avoid 30 concurrent recomposition loops on Fire TV
+    val pulseAlpha = if (isCardFocused) {
+        val infiniteTransition = rememberInfiniteTransition(label = "live_pulse")
+        val alpha by infiniteTransition.animateFloat(
+            initialValue = 0.4f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 800),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulse_alpha"
+        )
+        alpha
+    } else {
+        1f
+    }
 
     Card(
         onClick = { onClick(channel) },
         modifier = modifier
             .width(180.dp)
             .height(130.dp)
-            .clickable { onClick(channel) }
             .onFocusChanged { focusState ->
+                isCardFocused = focusState.isFocused
                 if (focusState.isFocused) {
                     onFocus()
                 }
             },
-        scale = CardDefaults.scale(focusedScale = 1.10f),
+        scale = CardDefaults.scale(focusedScale = 1.08f),
         border = CardDefaults.border(
             border = Border(border = BorderStroke(1.dp, GlassBorder)),
-            focusedBorder = Border(border = BorderStroke(3.5.dp, androidx.compose.ui.graphics.Color(0xFF60A5FA)))
+            focusedBorder = Border(border = BorderStroke(3.5.dp, Color(0xFF38BDF8)))
         ),
         colors = CardDefaults.colors(
             containerColor = DarkSurface,
-            focusedContainerColor = DarkSurfaceElevated
+            focusedContainerColor = Color(0xFF1E293B)
         ),
         shape = CardDefaults.shape(shape = RoundedCornerShape(12.dp))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(if (isCardFocused) Color(0xFF162032) else DarkSurface)
                 .padding(12.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -109,7 +121,7 @@ fun ChannelCard(
                     )
                     Text(
                         text = "LIVE",
-                        color = LiveRed,
+                        color = if (isCardFocused) Color(0xFFFF5252) else LiveRed,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -118,7 +130,7 @@ fun ChannelCard(
                 if (channel.isFavorite) {
                     Text(
                         text = "★",
-                        color = AccentBlue,
+                        color = Color(0xFFFFD700),
                         fontSize = 14.sp
                     )
                 }
@@ -140,7 +152,7 @@ fun ChannelCard(
                 } else {
                     Text(
                         text = channel.name.take(3).uppercase(),
-                        color = TextMuted,
+                        color = if (isCardFocused) Color(0xFF38BDF8) else TextMuted,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -149,9 +161,9 @@ fun ChannelCard(
 
             Text(
                 text = channel.name,
-                color = TextWhite,
+                color = if (isCardFocused) Color.White else TextWhite,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = if (isCardFocused) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

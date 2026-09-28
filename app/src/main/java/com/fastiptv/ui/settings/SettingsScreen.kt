@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
@@ -232,6 +233,9 @@ fun SettingsScreen(
                         contentColor = TextWhite,
                         focusedContentColor = TextWhite
                     ),
+                    border = ButtonDefaults.border(
+                        focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                    ),
                     shape = ButtonDefaults.shape(RoundedCornerShape(8.dp))
                 ) {
                     Text(
@@ -249,6 +253,9 @@ fun SettingsScreen(
                         focusedContainerColor = AccentBlue,
                         contentColor = TextWhite,
                         focusedContentColor = TextWhite
+                    ),
+                    border = ButtonDefaults.border(
+                        focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                     ),
                     shape = ButtonDefaults.shape(RoundedCornerShape(8.dp))
                 ) {
@@ -268,6 +275,9 @@ fun SettingsScreen(
                         focusedContainerColor = LiveRed.copy(alpha = 0.85f),
                         contentColor = LiveRed,
                         focusedContentColor = TextWhite
+                    ),
+                    border = ButtonDefaults.border(
+                        focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                     ),
                     shape = ButtonDefaults.shape(RoundedCornerShape(8.dp))
                 ) {
@@ -377,6 +387,9 @@ fun SettingsScreen(
                                 contentColor = TextWhite,
                                 focusedContainerColor = AccentBlue,
                                 focusedContentColor = TextWhite
+                            ),
+                            border = ButtonDefaults.border(
+                                focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                             )
                         ) {
                             Text("Check for Updates")
@@ -633,8 +646,8 @@ private fun TvCredentialField(
             .clip(RoundedCornerShape(10.dp))
             .background(if (isFocused || isEditing) Color(0xFF1E293B) else DarkSurface)
             .border(
-                width = if (isFocused || isEditing) 2.5.dp else 1.dp,
-                color = if (isFocused || isEditing) Color(0xFF60A5FA) else Color.White.copy(alpha = 0.12f),
+                width = if (isFocused || isEditing) 3.dp else 1.dp,
+                color = if (isFocused || isEditing) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.12f),
                 shape = RoundedCornerShape(10.dp)
             )
             .focusRequester(fieldFocusRequester)
@@ -675,7 +688,7 @@ private fun TvCredentialField(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (isFocused || isEditing) Color(0xFF60A5FA) else TextMuted,
+                    color = if (isFocused || isEditing) Color(0xFF38BDF8) else TextMuted,
                     fontWeight = if (isFocused || isEditing) FontWeight.Bold else FontWeight.Medium
                 )
                 if (isEditing) {

@@ -317,16 +317,15 @@ private fun HomeSpotlightHeader(
         onClick = onWatchClick,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onWatchClick() },
+            .clip(RoundedCornerShape(16.dp)),
         scale = CardDefaults.scale(focusedScale = 1.05f),
         colors = CardDefaults.colors(
             containerColor = DarkSurface.copy(alpha = 0.9f),
-            focusedContainerColor = DarkSurfaceElevated
+            focusedContainerColor = Color(0xFF1E293B)
         ),
         border = CardDefaults.border(
             border = Border(border = BorderStroke(1.dp, GlassBorder)),
-            focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF60A5FA)))
+            focusedBorder = Border(border = BorderStroke(3.5.dp, Color(0xFF38BDF8)))
         ),
         shape = CardDefaults.shape(shape = RoundedCornerShape(16.dp))
     ) {
@@ -477,11 +476,13 @@ private fun HomeSpotlightHeader(
                         .focusRequester(watchFocusRequester)
                         .focusProperties {
                             down = gridFocusRequester
-                        }
-                        .clickable { onWatchClick() },
+                        },
                     colors = ButtonDefaults.colors(
                         containerColor = AccentBlue,
                         focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
+                    ),
+                    border = ButtonDefaults.border(
+                        focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                     ),
                     shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp))
                 ) {
@@ -496,14 +497,13 @@ private fun HomeSpotlightHeader(
 
                 Button(
                     onClick = onToggleFavorite,
-                    modifier = Modifier.clickable { onToggleFavorite() },
                     colors = ButtonDefaults.colors(
                         containerColor = DarkSurfaceElevated,
                         focusedContainerColor = DarkSurfaceElevated.copy(alpha = 0.8f)
                     ),
                     border = ButtonDefaults.border(
                         border = Border(border = BorderStroke(1.dp, GlassBorder)),
-                        focusedBorder = Border(border = BorderStroke(1.5.dp, AccentBlue))
+                        focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                     ),
                     shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp))
                 ) {
