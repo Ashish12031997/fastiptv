@@ -50,6 +50,7 @@ import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.fastiptv.domain.model.Category
 import com.fastiptv.ui.theme.AccentBlue
 import com.fastiptv.ui.theme.DarkSurface
@@ -74,6 +75,7 @@ fun CatalogCategorySidebar(
     var isFilterBoxFocused by remember { mutableStateOf(false) }
     val filterBoxFocusRequester = remember { FocusRequester() }
     val filterTextFieldFocusRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
 
     BackHandler(enabled = isFilterEditing) {
         isFilterEditing = false
@@ -105,6 +107,18 @@ fun CatalogCategorySidebar(
                     item.cleanName.contains(searchQuery, ignoreCase = true) ||
                     item.groupName.contains(searchQuery, ignoreCase = true)
             matchesGroup && matchesQuery
+        }
+    }
+
+    val selectedCategoryIndex = remember(filteredCategories, selectedCategory) {
+        filteredCategories.indexOfFirst { it.category.id == selectedCategory?.id }
+    }
+
+    LaunchedEffect(selectedCategoryIndex) {
+        if (selectedCategoryIndex >= 0 && selectedCategoryIndex < filteredCategories.size) {
+            try {
+                listState.scrollToItem((selectedCategoryIndex - 2).coerceAtLeast(0))
+            } catch (_: Exception) {}
         }
     }
 
@@ -173,6 +187,9 @@ fun CatalogCategorySidebar(
                             }
                             if (topNavFocusRequester != null) {
                                 up = topNavFocusRequester
+                            }
+                            if (contentFocusRequester != null) {
+                                right = contentFocusRequester
                             }
                         }
                         .clickable {
@@ -292,6 +309,7 @@ fun CatalogCategorySidebar(
 
             // Category Vertical List
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -302,11 +320,17 @@ fun CatalogCategorySidebar(
                     val isSelected = item.category.id == selectedCategory?.id
                     var isItemFocused by remember { mutableStateOf(false) }
 
+                    val shouldAttachSidebarFocus = if (selectedCategoryIndex >= 0) {
+                        index == selectedCategoryIndex
+                    } else {
+                        index == 0
+                    }
+
                     val itemModifier = Modifier
                         .fillMaxWidth()
                         .height(44.dp)
                         .then(
-                            if (index == 0 && sidebarFirstItemFocusRequester != null) {
+                            if (shouldAttachSidebarFocus && sidebarFirstItemFocusRequester != null) {
                                 Modifier.focusRequester(sidebarFirstItemFocusRequester)
                             } else Modifier
                         )

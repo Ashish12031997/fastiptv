@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -95,12 +96,13 @@ fun EpgGridScreen(
     val isLoading by viewModel.isLoading.collectAsState()
 
     val horizontalGridScrollState = rememberScrollState()
-    val gridFirstItemFocusRequester = remember { FocusRequester() }
+    val gridFocusRequester = remember { FocusRequester() }
     val sidebarFocusRequester = contentFocusRequester ?: remember { FocusRequester() }
     val spotlightWatchFocusRequester = remember { FocusRequester() }
     val modalWatchButtonFocusRequester = remember { FocusRequester() }
     val modalCloseButtonFocusRequester = remember { FocusRequester() }
 
+    var activeRowIndex by remember { mutableIntStateOf(0) }
     var isGridFocused by remember { mutableStateOf(false) }
     var isSidebarFocused by remember { mutableStateOf(false) }
     var focusedChannel by remember { mutableStateOf<Channel?>(null) }
@@ -108,6 +110,7 @@ fun EpgGridScreen(
 
     // Keep spotlight updated when channels or programs change
     LaunchedEffect(selectedCategory) {
+        activeRowIndex = 0
         focusedChannel = null
         focusedProgram = null
     }
@@ -143,7 +146,7 @@ fun EpgGridScreen(
             delay(60)
             try {
                 if (!isGridFocused && !isSidebarFocused) {
-                    gridFirstItemFocusRequester.requestFocus()
+                    gridFocusRequester.requestFocus()
                 }
             } catch (_: Exception) {}
         }
@@ -210,7 +213,7 @@ fun EpgGridScreen(
                     onSelectCategory = { cat ->
                         viewModel.selectCategory(cat)
                     },
-                    contentFocusRequester = gridFirstItemFocusRequester,
+                    contentFocusRequester = gridFocusRequester,
                     sidebarFirstItemFocusRequester = sidebarFocusRequester,
                     topNavFocusRequester = topNavFocusRequester,
                     modifier = Modifier.onFocusChanged { isSidebarFocused = it.hasFocus }
@@ -277,7 +280,8 @@ fun EpgGridScreen(
                             channel = ch,
                             program = focusedProgram,
                             watchFocusRequester = spotlightWatchFocusRequester,
-                            gridFocusRequester = gridFirstItemFocusRequester,
+                            gridFocusRequester = gridFocusRequester,
+                            sidebarFocusRequester = sidebarFocusRequester,
                             onWatchNow = { onChannelClick(ch) },
                             onShowDetails = { prg -> viewModel.selectProgram(ch, prg) },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -369,7 +373,7 @@ fun EpgGridScreen(
                                     programs = programsMap[channel.id],
                                     timeSlots = timeSlots,
                                     scrollState = horizontalGridScrollState,
-                                    modifier = if (index == 0) Modifier.focusRequester(gridFirstItemFocusRequester) else Modifier,
+                                    modifier = if (index == activeRowIndex) Modifier.focusRequester(gridFocusRequester) else Modifier,
                                     upFocusRequester = if (index == 0) spotlightWatchFocusRequester else null,
                                     sidebarFocusRequester = sidebarFocusRequester,
                                     onChannelClick = { onChannelClick(channel) },
@@ -377,6 +381,7 @@ fun EpgGridScreen(
                                         viewModel.selectProgram(channel, program)
                                     },
                                     onRowFocused = { ch, prg ->
+                                        activeRowIndex = index
                                         focusedChannel = ch
                                         focusedProgram = prg
                                     }
@@ -417,6 +422,7 @@ private fun EpgSpotlightBar(
     program: EpgProgram?,
     watchFocusRequester: FocusRequester,
     gridFocusRequester: FocusRequester,
+    sidebarFocusRequester: FocusRequester? = null,
     onWatchNow: () -> Unit,
     onShowDetails: (EpgProgram) -> Unit,
     modifier: Modifier = Modifier
@@ -527,6 +533,9 @@ private fun EpgSpotlightBar(
                     modifier = Modifier
                         .focusRequester(watchFocusRequester)
                         .focusProperties {
+                            if (sidebarFocusRequester != null) {
+                                left = sidebarFocusRequester
+                            }
                             down = gridFocusRequester
                         },
                     colors = ButtonDefaults.colors(

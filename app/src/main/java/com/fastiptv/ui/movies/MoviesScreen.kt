@@ -21,15 +21,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -84,12 +87,22 @@ fun MoviesScreen(
     var isSidebarFocused by remember { mutableStateOf(false) }
 
     val sidebarFocusRequester = contentFocusRequester ?: remember { FocusRequester() }
-    val gridFirstItemFocusRequester = remember { FocusRequester() }
+    val gridFocusRequester = remember { FocusRequester() }
+    val spotlightWatchFocusRequester = remember { FocusRequester() }
+    var activeGridItemIndex by remember { mutableIntStateOf(0) }
+    val gridState = rememberLazyGridState()
 
     LaunchedEffect(movies) {
         if (movies.isNotEmpty() && (focusedMovie == null || movies.none { it.id == focusedMovie?.id })) {
             focusedMovie = movies.first()
         }
+    }
+
+    LaunchedEffect(selectedCategory) {
+        activeGridItemIndex = 0
+        try {
+            gridState.scrollToItem(0)
+        } catch (_: Exception) {}
     }
 
     // Remote Back button:
@@ -145,7 +158,7 @@ fun MoviesScreen(
                     onSelectCategory = { cat ->
                         viewModel.selectCategory(cat)
                     },
-                    contentFocusRequester = gridFirstItemFocusRequester,
+                    contentFocusRequester = gridFocusRequester,
                     sidebarFirstItemFocusRequester = sidebarFocusRequester,
                     topNavFocusRequester = topNavFocusRequester,
                     modifier = Modifier.onFocusChanged { isSidebarFocused = it.hasFocus }
@@ -320,9 +333,7 @@ fun MoviesScreen(
                                                 fontSize = 11.sp
                                             )
                                         }
-                                    }
-
-                                    Button(
+                                                                        Button(
                                         onClick = { onMovieClick(movie) },
                                         colors = ButtonDefaults.colors(
                                             containerColor = AccentBlue,
@@ -332,7 +343,13 @@ fun MoviesScreen(
                                             focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                                         ),
                                         shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                                        modifier = Modifier
+                                            .focusRequester(spotlightWatchFocusRequester)
+                                            .focusProperties {
+                                                left = sidebarFocusRequester
+                                                down = gridFocusRequester
+                                            }
                                     ) {
                                         Text(
                                             text = "▶ Watch",
@@ -370,37 +387,61 @@ fun MoviesScreen(
                             }
                         }
                     } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 140.dp),
+                        BoxWithConstraints(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .weight(1f)
-                                .onFocusChanged { state ->
-                                    isGridFocused = state.hasFocus
-                                },
-                            contentPadding = PaddingValues(bottom = 24.dp),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            itemsIndexed(movies, key = { _, movie -> "movie_${movie.id}" }) { index, movie ->
-                                val itemModifier = Modifier
-                                    .then(
-                                        if (index == 0) Modifier.focusRequester(gridFirstItemFocusRequester)
-                                        else Modifier
-                                    )
-                                    .focusProperties {
-                                        left = sidebarFocusRequester
-                                    }
+                            val minWidth = 140.dp
+                            val spacing = 14.dp
+                            val columnCount = maxOf(1, ((maxWidth + spacing) / (minWidth + spacing)).toInt())
 
-                                MovieCard(
-                                    movie = movie,
-                                    onClick = onMovieClick,
-                                    onFocus = { focusedMovie = it },
-                                    modifier = itemModifier
-                                )
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(columnCount),
+                                state = gridState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .onFocusChanged { state ->
+                                        isGridFocused = state.hasFocus
+                                    },
+                                contentPadding = PaddingValues(bottom = 24.dp),
+                                horizontalArrangement = Arrangement.spacedBy(spacing),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                itemsIndexed(movies, key = { _, movie -> "movie_${movie.id}" }) { index, movie ->
+                                    val isLeftEdge = (index % columnCount == 0)
+                                    val isTargetOfGridFocus = (index == activeGridItemIndex)
+
+                                    val itemModifier = Modifier
+                                        .then(
+                                            if (isTargetOfGridFocus) Modifier.focusRequester(gridFocusRequester)
+                                            else Modifier
+                                        )
+                                        .focusProperties {
+                                            if (isLeftEdge) {
+                                                left = sidebarFocusRequester
+                                            }
+                                            if (index < columnCount && focusedMovie != null) {
+                                                up = spotlightWatchFocusRequester
+                                            }
+                                        }
+                                        .onFocusChanged { state ->
+                                            if (state.isFocused) {
+                                                activeGridItemIndex = index
+                                                focusedMovie = movie
+                                            }
+                                        }
+
+                                    MovieCard(
+                                        movie = movie,
+                                        onClick = onMovieClick,
+                                        onFocus = { focusedMovie = it },
+                                        modifier = itemModifier
+                                    )
+                                }
                             }
                         }
-                    }
+                    }     }
                 }
             }
         }

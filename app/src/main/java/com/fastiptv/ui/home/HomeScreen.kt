@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -96,8 +99,17 @@ fun HomeScreen(
     var isSidebarFocused by remember { mutableStateOf(false) }
 
     val sidebarFocusRequester = contentFocusRequester ?: remember { FocusRequester() }
-    val gridFirstItemFocusRequester = remember { FocusRequester() }
+    val gridFocusRequester = remember { FocusRequester() }
     val spotlightWatchFocusRequester = remember { FocusRequester() }
+    var activeGridItemIndex by remember { mutableIntStateOf(0) }
+    val gridState = rememberLazyGridState()
+
+    LaunchedEffect(selectedCategory) {
+        activeGridItemIndex = 0
+        try {
+            gridState.scrollToItem(0)
+        } catch (_: Exception) {}
+    }
 
     LaunchedEffect(initialCategoryId) {
         if (!initialCategoryId.isNullOrBlank()) {
@@ -158,7 +170,7 @@ fun HomeScreen(
                     onSelectCategory = { cat ->
                         viewModel.selectCategory(cat)
                     },
-                    contentFocusRequester = gridFirstItemFocusRequester,
+                    contentFocusRequester = gridFocusRequester,
                     sidebarFirstItemFocusRequester = sidebarFocusRequester,
                     topNavFocusRequester = topNavFocusRequester,
                     modifier = Modifier.onFocusChanged { isSidebarFocused = it.hasFocus }
@@ -229,7 +241,8 @@ fun HomeScreen(
                             programStartSec = focusedProgram?.startTimestamp,
                             programEndSec = focusedProgram?.endTimestamp,
                             watchFocusRequester = spotlightWatchFocusRequester,
-                            gridFocusRequester = gridFirstItemFocusRequester,
+                            gridFocusRequester = gridFocusRequester,
+                            sidebarFocusRequester = sidebarFocusRequester,
                             onWatchClick = { onChannelClick(ch) },
                             onToggleFavorite = { viewModel.toggleFavorite(ch) }
                         )
@@ -251,36 +264,58 @@ fun HomeScreen(
                             )
                         }
                     } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 180.dp),
-                            contentPadding = PaddingValues(bottom = 32.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        BoxWithConstraints(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
-                                .onFocusChanged { focusState ->
-                                    isGridFocused = focusState.hasFocus
-                                }
                         ) {
-                            itemsIndexed(channels, key = { _, ch -> ch.id }) { index, ch ->
-                                val itemModifier = if (index == 0) {
-                                    Modifier
-                                        .focusRequester(gridFirstItemFocusRequester)
-                                        .focusProperties {
-                                            left = sidebarFocusRequester
-                                            up = spotlightWatchFocusRequester
-                                        }
-                                } else {
-                                    Modifier
-                                }
+                            val minWidth = 180.dp
+                            val spacing = 12.dp
+                            val columnCount = maxOf(1, ((maxWidth + spacing) / (minWidth + spacing)).toInt())
 
-                                ChannelCard(
-                                    channel = ch,
-                                    onClick = { onChannelClick(ch) },
-                                    onFocus = { viewModel.setFocusedChannel(ch) },
-                                    modifier = itemModifier
-                                )
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(columnCount),
+                                state = gridState,
+                                contentPadding = PaddingValues(bottom = 32.dp),
+                                horizontalArrangement = Arrangement.spacedBy(spacing),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .onFocusChanged { focusState ->
+                                        isGridFocused = focusState.hasFocus
+                                    }
+                            ) {
+                                itemsIndexed(channels, key = { _, ch -> ch.id }) { index, ch ->
+                                    val isLeftEdge = (index % columnCount == 0)
+                                    val isTargetOfGridFocus = (index == activeGridItemIndex)
+
+                                    val itemModifier = Modifier
+                                        .then(
+                                            if (isTargetOfGridFocus) Modifier.focusRequester(gridFocusRequester)
+                                            else Modifier
+                                        )
+                                        .focusProperties {
+                                            if (isLeftEdge) {
+                                                left = sidebarFocusRequester
+                                            }
+                                            if (index < columnCount) {
+                                                up = spotlightWatchFocusRequester
+                                            }
+                                        }
+                                        .onFocusChanged { focusState ->
+                                            if (focusState.isFocused) {
+                                                activeGridItemIndex = index
+                                                viewModel.setFocusedChannel(ch)
+                                            }
+                                        }
+
+                                    ChannelCard(
+                                        channel = ch,
+                                        onClick = { onChannelClick(ch) },
+                                        onFocus = { viewModel.setFocusedChannel(ch) },
+                                        modifier = itemModifier
+                                    )
+                                }
                             }
                         }
                     }
@@ -298,6 +333,7 @@ private fun HomeSpotlightHeader(
     programEndSec: Long?,
     watchFocusRequester: FocusRequester,
     gridFocusRequester: FocusRequester,
+    sidebarFocusRequester: FocusRequester? = null,
     onWatchClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier
@@ -475,6 +511,9 @@ private fun HomeSpotlightHeader(
                     modifier = Modifier
                         .focusRequester(watchFocusRequester)
                         .focusProperties {
+                            if (sidebarFocusRequester != null) {
+                                left = sidebarFocusRequester
+                            }
                             down = gridFocusRequester
                         },
                     colors = ButtonDefaults.colors(
