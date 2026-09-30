@@ -97,11 +97,18 @@ fun SettingsScreen(
     var password by remember(currentConfig) { mutableStateOf(currentConfig?.password ?: "") }
 
     var editingField by remember { mutableStateOf(SettingsEditingField.NONE) }
-    val hostFocusRequester = remember { FocusRequester() }
+    val hostFocusRequester = contentFocusRequester ?: remember { FocusRequester() }
     val portFocusRequester = remember { FocusRequester() }
     val usernameFocusRequester = remember { FocusRequester() }
     val passwordFocusRequester = remember { FocusRequester() }
     val saveButtonFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(150)
+        try {
+            hostFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
 
     val keyboardController = LocalSoftwareKeyboardController.current
 

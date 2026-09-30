@@ -29,6 +29,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import android.view.KeyEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,7 +67,7 @@ fun TopNavBar(
             it.screen.route == currentRoute ||
                     (it.screen == Screen.LiveTv && currentRoute?.startsWith("live_tv") == true)
         }
-        if (idx >= 0) idx else 0
+        if (idx >= 0) idx else if (currentRoute == Screen.Settings.route) -1 else 0
     }
     var selectedTabIndex by remember(currentRoute) { mutableIntStateOf(activeIndex) }
     var focusedTabIndex by remember { mutableIntStateOf(-1) }
@@ -134,6 +135,26 @@ fun TopNavBar(
                     }
                 },
                 modifier = Modifier
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                            if (keyEvent.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT &&
+                                (focusedTabIndex == NavItems.lastIndex || selectedTabIndex == NavItems.lastIndex)
+                            ) {
+                                try {
+                                    settingsFocusRequester.requestFocus()
+                                    true
+                                } catch (_: Exception) {
+                                    false
+                                }
+                            } else false
+                        } else false
+                    }
+                    .focusProperties {
+                        right = settingsFocusRequester
+                        if (contentFocusRequester != null) {
+                            down = contentFocusRequester
+                        }
+                    }
                     .onFocusChanged { focusState ->
                         if (!focusState.hasFocus) {
                             focusedTabIndex = -1
@@ -170,14 +191,34 @@ fun TopNavBar(
                         modifier = Modifier
                             .then(if (isSelected && topNavFocusRequester != null) Modifier.focusRequester(topNavFocusRequester) else Modifier)
                             .then(if (isLastTab) Modifier.focusRequester(seriesTabFocusRequester) else Modifier)
-                            .onKeyEvent { keyEvent ->
+                            .onPreviewKeyEvent { keyEvent ->
                                 if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
-                                    if (keyEvent.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
-                                        if (!isSelected) {
-                                            onNavigate(navItem.screen)
-                                            true
-                                        } else false
-                                    } else false
+                                    when (keyEvent.nativeKeyEvent.keyCode) {
+                                        android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                            if (isLastTab) {
+                                                try {
+                                                    settingsFocusRequester.requestFocus()
+                                                    true
+                                                } catch (_: Exception) {
+                                                    false
+                                                }
+                                            } else false
+                                        }
+                                        android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                            if (!isSelected) {
+                                                onNavigate(navItem.screen)
+                                                true
+                                            } else if (contentFocusRequester != null) {
+                                                try {
+                                                    contentFocusRequester.requestFocus()
+                                                    true
+                                                } catch (_: Exception) {
+                                                    false
+                                                }
+                                            } else false
+                                        }
+                                        else -> false
+                                    }
                                 } else false
                             }
                             .focusProperties {
@@ -219,6 +260,48 @@ fun TopNavBar(
             // Discrete Settings Icon Button on Far Right
             Box(
                 modifier = Modifier
+                    .focusRequester(settingsFocusRequester)
+                    .then(if (isSettingsSelected && topNavFocusRequester != null) Modifier.focusRequester(topNavFocusRequester) else Modifier)
+                    .focusProperties {
+                        left = seriesTabFocusRequester
+                        if (contentFocusRequester != null) {
+                            down = contentFocusRequester
+                        }
+                    }
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                            when (keyEvent.nativeKeyEvent.keyCode) {
+                                android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                    try {
+                                        seriesTabFocusRequester.requestFocus()
+                                        true
+                                    } catch (_: Exception) {
+                                        false
+                                    }
+                                }
+                                android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                                android.view.KeyEvent.KEYCODE_ENTER,
+                                android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                                    onNavigate(Screen.Settings)
+                                    true
+                                }
+                                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                    if (contentFocusRequester != null) {
+                                        try {
+                                            contentFocusRequester.requestFocus()
+                                            true
+                                        } catch (_: Exception) {
+                                            false
+                                        }
+                                    } else false
+                                }
+                                else -> false
+                            }
+                        } else false
+                    }
+                    .onFocusChanged { isSettingsFocused = it.isFocused }
+                    .focusable()
+                    .clickable { onNavigate(Screen.Settings) }
                     .clip(RoundedCornerShape(20.dp))
                     .then(
                         if (isSettingsFocused) {
@@ -231,16 +314,6 @@ fun TopNavBar(
                                 .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
                         } else Modifier
                     )
-                    .focusRequester(settingsFocusRequester)
-                    .focusProperties {
-                        left = seriesTabFocusRequester
-                        if (contentFocusRequester != null) {
-                            down = contentFocusRequester
-                        }
-                    }
-                    .focusable()
-                    .clickable { onNavigate(Screen.Settings) }
-                    .onFocusChanged { isSettingsFocused = it.isFocused }
                     .padding(horizontal = 14.dp, vertical = 8.dp)
             ) {
                 Row(

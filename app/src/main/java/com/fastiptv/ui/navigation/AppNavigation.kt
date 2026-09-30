@@ -416,7 +416,8 @@ fun AppNavigation(
             // 5. Settings
             composable(Screen.Settings.route) {
                 SettingsScreen(
-                    topNavFocusRequester = topNavFocusRequester
+                    topNavFocusRequester = topNavFocusRequester,
+                    contentFocusRequester = contentFocusRequester
                 )
             }
         }
