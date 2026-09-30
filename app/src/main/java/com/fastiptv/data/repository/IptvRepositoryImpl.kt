@@ -501,7 +501,7 @@ class IptvRepositoryImpl @Inject constructor(
             }
     }
 
-    override suspend fun syncAllLiveChannels(): Result<Unit> = runCatching {
+    override suspend fun syncAllLiveChannels(): Result<Unit> = try {
         android.util.Log.d("FastIPTV", "syncAllLiveChannels starting...")
         val dtos = api.getLiveStreams(categoryId = null)
         android.util.Log.d("FastIPTV", "syncAllLiveChannels fetched ${dtos.size} channels")
@@ -522,12 +522,14 @@ class IptvRepositoryImpl @Inject constructor(
             android.util.Log.d("FastIPTV", "syncAllLiveChannels inserted chunk $index (${chunk.size} items)")
         }
         android.util.Log.d("FastIPTV", "syncAllLiveChannels saved ${entities.size} channels to DB")
-        Unit
-    }.onFailure {
-        android.util.Log.e("FastIPTV", "syncAllLiveChannels error: ${it.message}", it)
+        Result.success(Unit)
+    } catch (t: Throwable) {
+        android.util.Log.e("FastIPTV", "syncAllLiveChannels error: ${t.message}", t)
+        if (t is OutOfMemoryError) System.gc()
+        Result.failure(t)
     }
 
-    override suspend fun syncAllMovies(): Result<Unit> = runCatching {
+    override suspend fun syncAllMovies(): Result<Unit> = try {
         android.util.Log.d("FastIPTV", "syncAllMovies starting...")
         val dtos = api.getVodStreams(categoryId = null)
         android.util.Log.d("FastIPTV", "syncAllMovies fetched ${dtos.size} movies")
@@ -547,12 +549,14 @@ class IptvRepositoryImpl @Inject constructor(
             }
         }
         android.util.Log.d("FastIPTV", "syncAllMovies saved ${entities.size} movies to DB")
-        Unit
-    }.onFailure {
-        android.util.Log.e("FastIPTV", "syncAllMovies error: ${it.message}", it)
+        Result.success(Unit)
+    } catch (t: Throwable) {
+        android.util.Log.e("FastIPTV", "syncAllMovies error: ${t.message}", t)
+        if (t is OutOfMemoryError) System.gc()
+        Result.failure(t)
     }
 
-    override suspend fun syncAllSeries(): Result<Unit> = runCatching {
+    override suspend fun syncAllSeries(): Result<Unit> = try {
         android.util.Log.d("FastIPTV", "syncAllSeries starting...")
         val dtos = api.getSeries(categoryId = null)
         android.util.Log.d("FastIPTV", "syncAllSeries fetched ${dtos.size} series")
@@ -572,9 +576,11 @@ class IptvRepositoryImpl @Inject constructor(
             }
         }
         android.util.Log.d("FastIPTV", "syncAllSeries saved ${entities.size} series to DB")
-        Unit
-    }.onFailure {
-        android.util.Log.e("FastIPTV", "syncAllSeries error: ${it.message}", it)
+        Result.success(Unit)
+    } catch (t: Throwable) {
+        android.util.Log.e("FastIPTV", "syncAllSeries error: ${t.message}", t)
+        if (t is OutOfMemoryError) System.gc()
+        Result.failure(t)
     }
 
     override suspend fun runFullBackgroundSync(): Result<Unit> = runCatching {

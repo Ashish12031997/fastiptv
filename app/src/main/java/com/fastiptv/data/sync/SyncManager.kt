@@ -61,9 +61,12 @@ class SyncManager @Inject constructor(
 
                 android.util.Log.d("FastIPTV", "SyncManager: All phases completed successfully")
                 _syncStatus.value = SyncStatus.Success("Full catalog synced!")
-            } catch (e: Exception) {
-                android.util.Log.e("FastIPTV", "SyncManager: Sync failed - ${e.message}", e)
-                _syncStatus.value = SyncStatus.Error("Sync failed: ${e.localizedMessage ?: "Network error"}")
+            } catch (t: Throwable) {
+                android.util.Log.e("FastIPTV", "SyncManager: Sync failed - ${t.message}", t)
+                if (t is OutOfMemoryError) {
+                    System.gc()
+                }
+                _syncStatus.value = SyncStatus.Error("Sync failed: ${t.localizedMessage ?: "Low memory"}")
             } finally {
                 isSyncing = false
             }
