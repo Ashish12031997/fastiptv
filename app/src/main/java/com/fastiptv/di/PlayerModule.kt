@@ -27,12 +27,12 @@ object PlayerModule {
     fun provideLoadControl(): LoadControl {
         return DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                /* minBufferMs = */ 15_000,
-                /* maxBufferMs = */ 35_000,
-                /* bufferForPlaybackMs = */ 1_500,
-                /* bufferForPlaybackAfterRebufferMs = */ 3_500
+                /* minBufferMs = */ 4_000,
+                /* maxBufferMs = */ 15_000,
+                /* bufferForPlaybackMs = */ 800,
+                /* bufferForPlaybackAfterRebufferMs = */ 1_500
             )
-            .setTargetBufferBytes(32 * 1024 * 1024)
+            .setTargetBufferBytes(8 * 1024 * 1024)
             .setPrioritizeTimeOverSizeThresholds(true)
             .setBackBuffer(/* backBufferDurationMs = */ 0, /* retainBackBufferFromKeyframe = */ false)
             .build()
@@ -81,6 +81,8 @@ object PlayerModule {
 
         val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context).apply {
             setEnableDecoderFallback(true)
+            setAllowedVideoJoiningTimeMs(5000L)
+            setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         }
 
         val audioAttributes = AudioAttributes.Builder()

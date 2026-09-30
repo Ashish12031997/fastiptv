@@ -176,10 +176,38 @@ class StreamErrorHandler @Inject constructor(
                     val config = sessionManager.getCachedConfig()
                     if (config != null && config.isValid) {
                         val newUrl = urlBuilder.buildLiveStreamUrl(config, currentStreamId, currentFormat)
-                        val newItem = MediaItem.Builder()
+                        val mimeType = if (currentFormat.equals("m3u8", ignoreCase = true)) {
+                            MimeTypes.APPLICATION_M3U8
+                        } else {
+                            MimeTypes.VIDEO_MP2T
+                        }
+                        val newItemBuilder = MediaItem.Builder()
                             .setUri(newUrl)
                             .setMediaId(currentStreamId.toString())
-                            .build()
+                            .setMimeType(mimeType)
+
+                        if (currentFormat.equals("m3u8", ignoreCase = true)) {
+                            newItemBuilder.setLiveConfiguration(
+                                MediaItem.LiveConfiguration.Builder()
+                                    .setTargetOffsetMs(6_000L)
+                                    .setMinOffsetMs(2_000L)
+                                    .setMaxOffsetMs(15_000L)
+                                    .setMinPlaybackSpeed(0.97f)
+                                    .setMaxPlaybackSpeed(1.03f)
+                                    .build()
+                            )
+                        } else {
+                            newItemBuilder.setLiveConfiguration(
+                                MediaItem.LiveConfiguration.Builder()
+                                    .setTargetOffsetMs(4_000L)
+                                    .setMinOffsetMs(1_000L)
+                                    .setMaxOffsetMs(10_000L)
+                                    .setMinPlaybackSpeed(1.0f)
+                                    .setMaxPlaybackSpeed(1.0f)
+                                    .build()
+                            )
+                        }
+                        val newItem = newItemBuilder.build()
                         player.setMediaItem(newItem)
                         player.prepare()
                         player.play()

@@ -33,19 +33,35 @@ class StreamPlayer @Inject constructor(
         try {
             errorHandler.onChannelChanged(streamId, title, format, streamType = "live")
 
-            val mediaItem = MediaItem.Builder()
+            val mediaItemBuilder = MediaItem.Builder()
                 .setUri(url)
                 .setMediaId(streamId.toString())
-                .setLiveConfiguration(
+
+            if (format.equals("m3u8", ignoreCase = true)) {
+                mediaItemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+                mediaItemBuilder.setLiveConfiguration(
                     MediaItem.LiveConfiguration.Builder()
                         .setTargetOffsetMs(6_000L)
                         .setMinOffsetMs(2_000L)
                         .setMaxOffsetMs(15_000L)
-                        .setMinPlaybackSpeed(0.95f)
-                        .setMaxPlaybackSpeed(1.05f)
+                        .setMinPlaybackSpeed(0.97f)
+                        .setMaxPlaybackSpeed(1.03f)
                         .build()
                 )
-                .build()
+            } else {
+                mediaItemBuilder.setMimeType(MimeTypes.VIDEO_MP2T)
+                mediaItemBuilder.setLiveConfiguration(
+                    MediaItem.LiveConfiguration.Builder()
+                        .setTargetOffsetMs(4_000L)
+                        .setMinOffsetMs(1_000L)
+                        .setMaxOffsetMs(10_000L)
+                        .setMinPlaybackSpeed(1.0f)
+                        .setMaxPlaybackSpeed(1.0f)
+                        .build()
+                )
+            }
+
+            val mediaItem = mediaItemBuilder.build()
 
             exoPlayer.stop()
             exoPlayer.setMediaItem(mediaItem, /* resetPosition = */ true)
@@ -72,6 +88,14 @@ class StreamPlayer @Inject constructor(
             val mediaItem = MediaItem.Builder()
                 .setUri(url)
                 .setMediaId(streamId.toString())
+                .apply {
+                    when (containerExt.lowercase()) {
+                        "mkv" -> setMimeType(MimeTypes.VIDEO_MATROSKA)
+                        "mp4" -> setMimeType(MimeTypes.VIDEO_MP4)
+                        "m3u8" -> setMimeType(MimeTypes.APPLICATION_M3U8)
+                        "ts" -> setMimeType(MimeTypes.VIDEO_MP2T)
+                    }
+                }
                 .build()
 
             exoPlayer.stop()
@@ -99,6 +123,14 @@ class StreamPlayer @Inject constructor(
             val mediaItem = MediaItem.Builder()
                 .setUri(url)
                 .setMediaId(episodeId.toString())
+                .apply {
+                    when (containerExt.lowercase()) {
+                        "mkv" -> setMimeType(MimeTypes.VIDEO_MATROSKA)
+                        "mp4" -> setMimeType(MimeTypes.VIDEO_MP4)
+                        "m3u8" -> setMimeType(MimeTypes.APPLICATION_M3U8)
+                        "ts" -> setMimeType(MimeTypes.VIDEO_MP2T)
+                    }
+                }
                 .build()
 
             exoPlayer.stop()
