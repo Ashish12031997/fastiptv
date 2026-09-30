@@ -72,8 +72,12 @@ import coil3.compose.AsyncImage
 import com.fastiptv.domain.model.Category
 import com.fastiptv.domain.model.CategoryType
 import com.fastiptv.domain.model.Channel
+import com.fastiptv.domain.model.ContentRegion
 import com.fastiptv.player.PlayerState
+import com.fastiptv.ui.components.CategoryGroup
 import com.fastiptv.ui.components.CategoryGroupHelper
+import com.fastiptv.ui.components.GroupPriority
+import com.fastiptv.ui.components.ParsedCategory
 import com.fastiptv.ui.theme.AccentBlue
 import com.fastiptv.ui.theme.DarkSurface
 import com.fastiptv.ui.theme.DarkSurfaceElevated
@@ -85,6 +89,22 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Sealed class representing items in the Live TV channel guide drawer sidebar.
+ */
+private sealed class DrawerSidebarItem {
+    data object RecentItem : DrawerSidebarItem()
+    data class GroupHeader(
+        val group: CategoryGroup,
+        val isExpanded: Boolean
+    ) : DrawerSidebarItem()
+    data class CategoryItem(
+        val parsed: ParsedCategory,
+        val groupName: String
+    ) : DrawerSidebarItem()
+    data class Separator(val id: String) : DrawerSidebarItem()
+}
+
 @Composable
 fun LiveTvScreen(
     onBackPressed: () -> Unit,
@@ -94,6 +114,8 @@ fun LiveTvScreen(
     val playerState by viewModel.playerState.collectAsState()
     val currentChannel by viewModel.currentChannel.collectAsState()
     val categories by viewModel.categories.collectAsState()
+    val contentRegion by viewModel.contentRegion.collectAsState()
+    val pinnedGroups by viewModel.pinnedGroups.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val channels by viewModel.channels.collectAsState()
     val isBannerVisible by viewModel.isBannerVisible.collectAsState()
@@ -272,6 +294,9 @@ fun LiveTvScreen(
                 selectedCategory = selectedCategory,
                 channels = channels,
                 currentChannelId = currentChannel?.id,
+                region = contentRegion,
+                pinnedGroups = pinnedGroups,
+                onTogglePinGroup = { groupName -> viewModel.togglePinGroup(groupName) },
                 onSelectCategory = { cat -> viewModel.selectCategory(cat) },
                 onSelectChannel = { ch ->
                     viewModel.tuneToChannel(ch)
@@ -447,7 +472,7 @@ fun IndianCableBottomBanner(
 
 /**
  * Semi-Transparent 2-Column Side Channel Guide (Tata Play / Airtel DTH Style)
- * Column 1 (Left): Categories / Genres
+ * Column 1 (Left): Grouped Categories with priority ordering
  * Column 2 (Right): Channels in the selected category
  */
 @Composable
@@ -456,6 +481,9 @@ fun IndianCableSideDrawer(
     selectedCategory: Category?,
     channels: List<Channel>,
     currentChannelId: Int?,
+    region: ContentRegion = ContentRegion.AUTO,
+    pinnedGroups: Set<String> = emptySet(),
+    onTogglePinGroup: ((String) -> Unit)? = null,
     onSelectCategory: (Category) -> Unit,
     onSelectChannel: (Channel) -> Unit,
     onCloseDrawer: () -> Unit,
@@ -469,18 +497,88 @@ fun IndianCableSideDrawer(
     val categoryListState = rememberLazyListState()
     val channelListState = rememberLazyListState()
 
-    val allCategories = remember(categories) {
-        val recentCat = Category(
-            id = "RECENT",
-            name = "⭐ Recent",
-            type = CategoryType.LIVE
-        )
-        listOf(recentCat) + categories
+    // Build grouped categories with priority ordering
+    val groupedCategories = remember(categories, region, pinnedGroups) {
+        CategoryGroupHelper.buildGroups(categories, region, pinnedGroups)
     }
 
-    val selectedCategoryIndex = remember(allCategories, selectedCategory) {
-        val idx = allCategories.indexOfFirst { it.id == selectedCategory?.id }
-        if (idx >= 0) idx else 0
+    // Track expanded groups
+    var expandedGroups by remember(groupedCategories) {
+        val initial = mutableSetOf<String>()
+        // Auto-expand group containing selected category
+        if (selectedCategory != null) {
+            groupedCategories.find { group ->
+                group.categories.any { it.category.id == selectedCategory.id }
+            }?.let { initial.add(it.groupName) }
+        }
+        // If nothing selected, expand first HIGH priority group
+        if (initial.isEmpty()) {
+            groupedCategories.firstOrNull { it.priority == GroupPriority.HIGH }?.let {
+                initial.add(it.groupName)
+            }
+        }
+        mutableStateOf<Set<String>>(initial)
+    }
+
+    // Auto-expand when selected category changes
+    LaunchedEffect(selectedCategory?.id) {
+        if (selectedCategory != null && selectedCategory.id != "RECENT") {
+            val containingGroup = groupedCategories.find { group ->
+                group.categories.any { it.category.id == selectedCategory.id }
+            }
+            if (containingGroup != null && containingGroup.groupName !in expandedGroups) {
+                expandedGroups = expandedGroups + containingGroup.groupName
+            }
+        }
+    }
+
+    // Build flat sidebar items: Recent first, then grouped categories
+    val sidebarItems = remember(groupedCategories, expandedGroups) {
+        buildList {
+            // "⭐ Recent" always at top
+            add(DrawerSidebarItem.RecentItem)
+
+            var lastPriority: GroupPriority? = null
+            var hasSeparatedPinned = false
+            for (group in groupedCategories) {
+                // Separator below pinned groups
+                if (!hasSeparatedPinned && !group.isPinned && pinnedGroups.isNotEmpty() && groupedCategories.any { it.isPinned }) {
+                    add(DrawerSidebarItem.Separator("sep_pinned"))
+                    hasSeparatedPinned = true
+                }
+                // Separator between priority tiers
+                if (lastPriority != null && lastPriority != group.priority &&
+                    (lastPriority == GroupPriority.HIGH || group.priority == GroupPriority.LOW)) {
+                    add(DrawerSidebarItem.Separator("sep_${group.priority.name}"))
+                }
+                lastPriority = group.priority
+
+                // Single-category groups show inline
+                if (group.categories.size == 1) {
+                    add(DrawerSidebarItem.CategoryItem(group.categories.first(), group.groupName))
+                    continue
+                }
+
+                val isExpanded = group.groupName in expandedGroups
+                add(DrawerSidebarItem.GroupHeader(group, isExpanded))
+                if (isExpanded) {
+                    for (cat in group.categories) {
+                        add(DrawerSidebarItem.CategoryItem(cat, group.groupName))
+                    }
+                }
+            }
+        }
+    }
+
+    // Find selected item index for focus management
+    val selectedItemIndex = remember(sidebarItems, selectedCategory) {
+        if (selectedCategory?.id == "RECENT") {
+            sidebarItems.indexOfFirst { it is DrawerSidebarItem.RecentItem }
+        } else {
+            sidebarItems.indexOfFirst {
+                it is DrawerSidebarItem.CategoryItem && it.parsed.category.id == selectedCategory?.id
+            }
+        }
     }
 
     val currentChannelIndex = remember(channels, currentChannelId) {
@@ -488,10 +586,10 @@ fun IndianCableSideDrawer(
         if (idx >= 0) idx else 0
     }
 
-    LaunchedEffect(selectedCategoryIndex) {
-        if (selectedCategoryIndex in allCategories.indices) {
+    LaunchedEffect(selectedItemIndex) {
+        if (selectedItemIndex >= 0) {
             try {
-                categoryListState.scrollToItem((selectedCategoryIndex - 2).coerceAtLeast(0))
+                categoryListState.scrollToItem((selectedItemIndex - 2).coerceAtLeast(0))
             } catch (_: Exception) {}
         }
     }
@@ -517,7 +615,7 @@ fun IndianCableSideDrawer(
             .background(Color(0xF50A0E1A))
             .border(width = 1.dp, color = GlassBorder)
     ) {
-        // COLUMN 1: Categories (Left, 220.dp)
+        // COLUMN 1: Grouped Categories (Left, 220.dp)
         Column(
             modifier = Modifier
                 .width(220.dp)
@@ -548,7 +646,7 @@ fun IndianCableSideDrawer(
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "${allCategories.size}",
+                        text = "${groupedCategories.size} groups",
                         color = TextMuted,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -558,109 +656,377 @@ fun IndianCableSideDrawer(
 
             LazyColumn(
                 state = categoryListState,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                itemsIndexed(allCategories, key = { _, cat -> cat.id }) { index, cat ->
-                    val isSelected = cat.id == selectedCategory?.id
-                    var isCatFocused by remember { mutableStateOf(false) }
-                    val shouldAttachFocus = index == selectedCategoryIndex
+                itemsIndexed(
+                    sidebarItems,
+                    key = { _, item ->
+                        when (item) {
+                            is DrawerSidebarItem.RecentItem -> "RECENT"
+                            is DrawerSidebarItem.GroupHeader -> "group_${item.group.groupName}"
+                            is DrawerSidebarItem.CategoryItem -> "cat_${item.parsed.category.id}"
+                            is DrawerSidebarItem.Separator -> item.id
+                        }
+                    }
+                ) { index, item ->
+                    when (item) {
+                        is DrawerSidebarItem.Separator -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .height(1.dp)
+                                    .background(GlassBorder.copy(alpha = 0.4f))
+                            )
+                        }
 
-                    val parsed = remember(cat) { CategoryGroupHelper.parse(cat) }
+                        is DrawerSidebarItem.RecentItem -> {
+                            val isSelected = selectedCategory?.id == "RECENT"
+                            var isCatFocused by remember { mutableStateOf(false) }
+                            val shouldAttachFocus = selectedItemIndex == index
 
-                    val itemModifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .then(
-                            if (shouldAttachFocus) Modifier.focusRequester(categoryFocusRequester) else Modifier
-                        )
-                        .onFocusChanged { state ->
-                            isCatFocused = state.isFocused
-                            if (state.isFocused) {
-                                onChannelFocused(false)
-                                if (cat.id != selectedCategory?.id) {
-                                    debounceCategoryJob?.cancel()
-                                    debounceCategoryJob = coroutineScope.launch {
-                                        delay(150L)
-                                        onSelectCategory(cat)
+                            Card(
+                                onClick = {
+                                    onSelectCategory(Category(id = "RECENT", name = "⭐ Recent", type = CategoryType.LIVE))
+                                    try {
+                                        channelListFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp)
+                                    .then(
+                                        if (shouldAttachFocus) Modifier.focusRequester(categoryFocusRequester) else Modifier
+                                    )
+                                    .onFocusChanged { state ->
+                                        isCatFocused = state.isFocused
+                                        if (state.isFocused) {
+                                            onChannelFocused(false)
+                                            if (selectedCategory?.id != "RECENT") {
+                                                debounceCategoryJob?.cancel()
+                                                debounceCategoryJob = coroutineScope.launch {
+                                                    delay(150L)
+                                                    onSelectCategory(Category(id = "RECENT", name = "⭐ Recent", type = CategoryType.LIVE))
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .focusProperties {
+                                        right = channelListFocusRequester
+                                    },
+                                scale = CardDefaults.scale(focusedScale = 1.04f),
+                                colors = CardDefaults.colors(
+                                    containerColor = if (isSelected) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color.Transparent,
+                                    focusedContainerColor = Color(0xFF1D4ED8)
+                                ),
+                                border = CardDefaults.border(
+                                    border = Border(
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSelected) Color(0xFF38BDF8).copy(alpha = 0.6f) else Color.Transparent
+                                        )
+                                    ),
+                                    focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF60A5FA)))
+                                ),
+                                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(if (isCatFocused) 4.dp else 3.dp)
+                                            .height(20.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(
+                                                when {
+                                                    isCatFocused -> Color(0xFF60A5FA)
+                                                    isSelected -> AccentBlue
+                                                    else -> Color.Transparent
+                                                }
+                                            )
+                                    )
+                                    Text(
+                                        text = "⭐ Recent",
+                                        fontSize = if (isCatFocused) 13.sp else 12.sp,
+                                        fontWeight = when {
+                                            isCatFocused -> FontWeight.Black
+                                            isSelected -> FontWeight.Bold
+                                            else -> FontWeight.Medium
+                                        },
+                                        color = when {
+                                            isCatFocused -> Color.White
+                                            isSelected -> TextWhite
+                                            else -> TextMuted
+                                        },
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+
+                        is DrawerSidebarItem.GroupHeader -> {
+                            var isFocused by remember { mutableStateOf(false) }
+                            var keyDownTime by remember { mutableStateOf(0L) }
+                            val shouldAttachFocus = selectedItemIndex < 0 && index == 1
+
+                            val priorityColor = when {
+                                item.group.isPinned -> Color(0xFFFDE047)
+                                item.group.priority == GroupPriority.HIGH -> Color(0xFF38BDF8)
+                                item.group.priority == GroupPriority.NORMAL -> TextMuted
+                                item.group.priority == GroupPriority.LOW -> TextMuted.copy(alpha = 0.5f)
+                                else -> TextMuted
+                            }
+
+                            Card(
+                                onClick = {
+                                    expandedGroups = if (item.group.groupName in expandedGroups) {
+                                        expandedGroups - item.group.groupName
+                                    } else {
+                                        expandedGroups + item.group.groupName
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                                    .then(
+                                        if (shouldAttachFocus) Modifier.focusRequester(categoryFocusRequester) else Modifier
+                                    )
+                                    .onFocusChanged { state ->
+                                        isFocused = state.isFocused
+                                        if (state.isFocused) {
+                                            onChannelFocused(false)
+                                        }
+                                    }
+                                    .focusProperties {
+                                        right = channelListFocusRequester
+                                    }
+                                    .onKeyEvent { keyEvent ->
+                                        val nativeEvent = keyEvent.nativeKeyEvent
+                                        val code = nativeEvent.keyCode
+                                        if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                                            if (nativeEvent.action == KeyEvent.ACTION_DOWN) {
+                                                if (keyDownTime == 0L) {
+                                                    keyDownTime = System.currentTimeMillis()
+                                                }
+                                                false
+                                            } else if (nativeEvent.action == KeyEvent.ACTION_UP) {
+                                                val duration = System.currentTimeMillis() - keyDownTime
+                                                keyDownTime = 0L
+                                                if (duration > 500L && onTogglePinGroup != null) {
+                                                    onTogglePinGroup(item.group.groupName)
+                                                    true
+                                                } else {
+                                                    false
+                                                }
+                                            } else {
+                                                false
+                                            }
+                                        } else if (nativeEvent.action == KeyEvent.ACTION_UP && (code == KeyEvent.KEYCODE_PROG_YELLOW || code == KeyEvent.KEYCODE_BOOKMARK)) {
+                                            if (onTogglePinGroup != null) {
+                                                onTogglePinGroup(item.group.groupName)
+                                                true
+                                            } else {
+                                                false
+                                            }
+                                        } else {
+                                            false
+                                        }
+                                    },
+                                scale = CardDefaults.scale(focusedScale = 1.03f),
+                                colors = CardDefaults.colors(
+                                    containerColor = when {
+                                        item.group.isPinned -> Color(0xFF2E2408).copy(alpha = 0.65f)
+                                        item.isExpanded -> Color(0xFF1E293B).copy(alpha = 0.5f)
+                                        else -> Color(0xFF0F172A).copy(alpha = 0.4f)
+                                    },
+                                    focusedContainerColor = if (item.group.isPinned) Color(0xFF854D0E).copy(alpha = 0.85f) else Color(0xFF1E3A8A).copy(alpha = 0.8f)
+                                ),
+                                border = CardDefaults.border(
+                                    border = Border(
+                                        border = BorderStroke(
+                                            1.dp,
+                                            when {
+                                                item.group.isPinned -> Color(0xFFFDE047).copy(alpha = 0.5f)
+                                                item.isExpanded -> Color(0xFF38BDF8).copy(alpha = 0.2f)
+                                                else -> Color.Transparent
+                                            }
+                                        )
+                                    ),
+                                    focusedBorder = Border(
+                                        border = BorderStroke(2.dp, if (item.group.isPinned) Color(0xFFFDE047) else Color(0xFF60A5FA))
+                                    )
+                                ),
+                                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 8.dp)
+                                ) {
+                                    if (item.group.isPinned) {
+                                        Text(
+                                            text = "⭐",
+                                            fontSize = 10.sp
+                                        )
+                                    } else if (item.group.priority == GroupPriority.HIGH) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(3.dp)
+                                                .height(16.dp)
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(Color(0xFF38BDF8))
+                                        )
+                                    }
+
+                                    Text(
+                                        text = if (item.isExpanded) "▼" else "▶",
+                                        fontSize = 9.sp,
+                                        color = if (isFocused) Color.White else priorityColor
+                                    )
+
+                                    Text(
+                                        text = item.group.groupName,
+                                        fontSize = if (isFocused) 12.sp else 11.sp,
+                                        fontWeight = if (isFocused || item.isExpanded || item.group.isPinned) FontWeight.Bold else FontWeight.SemiBold,
+                                        color = when {
+                                            isFocused -> Color.White
+                                            item.group.isPinned -> Color(0xFFFEF08A)
+                                            item.isExpanded -> TextWhite
+                                            item.group.priority == GroupPriority.HIGH -> Color(0xFFBFDBFE)
+                                            else -> TextMuted
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(
+                                                if (isFocused) {
+                                                    if (item.group.isPinned) Color(0xFF713F12) else Color(0xFF1E40AF)
+                                                } else DarkSurfaceElevated.copy(alpha = 0.5f)
+                                            )
+                                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                                    ) {
+                                        Text(
+                                            text = "${item.group.categories.size}",
+                                            color = when {
+                                                isFocused -> Color.White
+                                                item.group.isPinned -> Color(0xFFFDE047)
+                                                else -> TextMuted.copy(alpha = 0.7f)
+                                            },
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
                         }
-                        .focusProperties {
-                            right = channelListFocusRequester
-                        }
 
-                    Card(
-                        onClick = {
-                            onSelectCategory(cat)
-                            try {
-                                channelListFocusRequester.requestFocus()
-                            } catch (_: Exception) {}
-                        },
-                        modifier = itemModifier,
-                        scale = CardDefaults.scale(focusedScale = 1.04f),
-                        colors = CardDefaults.colors(
-                            containerColor = if (isSelected) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color.Transparent,
-                            focusedContainerColor = Color(0xFF1D4ED8)
-                        ),
-                        border = CardDefaults.border(
-                            border = Border(
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isSelected) Color(0xFF38BDF8).copy(alpha = 0.6f) else Color.Transparent
-                                )
-                            ),
-                            focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF60A5FA)))
-                        ),
-                        shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 8.dp)
-                        ) {
-                            // Active Indicator Pill
-                            Box(
+                        is DrawerSidebarItem.CategoryItem -> {
+                            val isSelected = item.parsed.category.id == selectedCategory?.id
+                            var isCatFocused by remember { mutableStateOf(false) }
+                            val shouldAttachFocus = selectedItemIndex == index
+
+                            val isInsideGroup = sidebarItems.any {
+                                it is DrawerSidebarItem.GroupHeader && it.group.groupName == item.groupName
+                            }
+
+                            Card(
+                                onClick = {
+                                    onSelectCategory(item.parsed.category)
+                                    try {
+                                        channelListFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                },
                                 modifier = Modifier
-                                    .width(if (isCatFocused) 4.dp else 3.dp)
-                                    .height(20.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(
-                                        when {
-                                            isCatFocused -> Color(0xFF60A5FA)
-                                            isSelected -> AccentBlue
-                                            else -> Color.Transparent
-                                        }
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                                    .then(
+                                        if (shouldAttachFocus) Modifier.focusRequester(categoryFocusRequester) else Modifier
                                     )
-                            )
+                                    .onFocusChanged { state ->
+                                        isCatFocused = state.isFocused
+                                        if (state.isFocused) {
+                                            onChannelFocused(false)
+                                            if (item.parsed.category.id != selectedCategory?.id) {
+                                                debounceCategoryJob?.cancel()
+                                                debounceCategoryJob = coroutineScope.launch {
+                                                    delay(150L)
+                                                    onSelectCategory(item.parsed.category)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .focusProperties {
+                                        right = channelListFocusRequester
+                                    },
+                                scale = CardDefaults.scale(focusedScale = 1.04f),
+                                colors = CardDefaults.colors(
+                                    containerColor = if (isSelected) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color.Transparent,
+                                    focusedContainerColor = Color(0xFF1D4ED8)
+                                ),
+                                border = CardDefaults.border(
+                                    border = Border(
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isSelected) Color(0xFF38BDF8).copy(alpha = 0.6f) else Color.Transparent
+                                        )
+                                    ),
+                                    focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF60A5FA)))
+                                ),
+                                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(
+                                            start = if (isInsideGroup) 18.dp else 8.dp,
+                                            end = 8.dp
+                                        )
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(if (isCatFocused) 4.dp else 3.dp)
+                                            .height(18.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(
+                                                when {
+                                                    isCatFocused -> Color(0xFF60A5FA)
+                                                    isSelected -> AccentBlue
+                                                    else -> Color.Transparent
+                                                }
+                                            )
+                                    )
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (cat.id == "RECENT") "⭐ Recent" else parsed.cleanName,
-                                    fontSize = if (isCatFocused) 13.sp else 12.sp,
-                                    fontWeight = when {
-                                        isCatFocused -> FontWeight.Black
-                                        isSelected -> FontWeight.Bold
-                                        else -> FontWeight.Medium
-                                    },
-                                    color = when {
-                                        isCatFocused -> Color.White
-                                        isSelected -> TextWhite
-                                        else -> TextMuted
-                                    },
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                if (cat.id != "RECENT" && parsed.groupName != "GENERAL") {
                                     Text(
-                                        text = parsed.groupName,
-                                        fontSize = 9.sp,
-                                        color = if (isCatFocused) Color(0xFF93C5FD) else AccentBlue.copy(alpha = 0.7f),
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1
+                                        text = item.parsed.cleanName,
+                                        fontSize = if (isCatFocused) 12.sp else 11.sp,
+                                        fontWeight = when {
+                                            isCatFocused -> FontWeight.Black
+                                            isSelected -> FontWeight.Bold
+                                            else -> FontWeight.Medium
+                                        },
+                                        color = when {
+                                            isCatFocused -> Color.White
+                                            isSelected -> TextWhite
+                                            else -> TextMuted
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
                                     )
                                 }
                             }

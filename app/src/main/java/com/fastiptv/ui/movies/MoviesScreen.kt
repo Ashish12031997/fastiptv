@@ -70,6 +70,8 @@ fun MoviesScreen(
     viewModel: MoviesViewModel = hiltViewModel()
 ) {
     val categories by viewModel.categories.collectAsState()
+    val contentRegion by viewModel.contentRegion.collectAsState()
+    val pinnedGroups by viewModel.pinnedGroups.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val movies by viewModel.movies.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -162,6 +164,9 @@ fun MoviesScreen(
                     contentFocusRequester = gridFocusRequester,
                     sidebarFirstItemFocusRequester = sidebarFocusRequester,
                     topNavFocusRequester = topNavFocusRequester,
+                    region = contentRegion,
+                    pinnedGroups = pinnedGroups,
+                    onTogglePinGroup = { groupName -> viewModel.togglePinGroup(groupName) },
                     modifier = Modifier.onFocusChanged { isSidebarFocused = it.hasFocus }
                 )
 

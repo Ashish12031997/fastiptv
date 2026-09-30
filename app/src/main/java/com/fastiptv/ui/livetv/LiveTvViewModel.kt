@@ -39,6 +39,12 @@ class LiveTvViewModel @Inject constructor(
     val categories: StateFlow<List<Category>> = repository.observeLiveCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val contentRegion: StateFlow<com.fastiptv.domain.model.ContentRegion> = sessionManager.contentRegionFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), sessionManager.getCachedContentRegion())
+
+    val pinnedGroups: StateFlow<Set<String>> = sessionManager.pinnedGroupsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), sessionManager.getCachedPinnedGroups())
+
     val recents: StateFlow<List<RecentItem>> = repository.observeRecents(limit = 20)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -98,9 +104,13 @@ class LiveTvViewModel @Inject constructor(
     init {
         // Automatically start playing last watched or first available channel
         viewModelScope.launch {
-            categories.collect { cats ->
+            kotlinx.coroutines.flow.combine(categories, contentRegion, pinnedGroups) { cats, region, pinned ->
+                Triple(cats, region, pinned)
+            }.collect { (cats, region, pinned) ->
                 if (_selectedCategory.value == null && cats.isNotEmpty()) {
-                    _selectedCategory.value = cats.first()
+                    val groups = com.fastiptv.ui.components.CategoryGroupHelper.buildGroups(cats, region, pinned)
+                    val firstPriorityCat = groups.firstOrNull()?.categories?.firstOrNull()?.category
+                    _selectedCategory.value = firstPriorityCat ?: cats.first()
                 }
             }
         }
@@ -191,6 +201,12 @@ class LiveTvViewModel @Inject constructor(
 
     fun selectCategory(category: Category) {
         _selectedCategory.value = category
+    }
+
+    fun togglePinGroup(groupName: String) {
+        viewModelScope.launch {
+            sessionManager.togglePinGroup(groupName)
+        }
     }
 
     fun setSearchQuery(query: String) {

@@ -2,15 +2,19 @@ package com.fastiptv.ui.movies
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fastiptv.data.session.SessionManager
 import com.fastiptv.domain.model.Category
+import com.fastiptv.domain.model.ContentRegion
 import com.fastiptv.domain.model.Movie
 import com.fastiptv.domain.repository.IptvRepository
+import com.fastiptv.ui.components.CategoryGroupHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -20,11 +24,18 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MoviesViewModel @Inject constructor(
-    private val repository: IptvRepository
+    private val repository: IptvRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     val categories: StateFlow<List<Category>> = repository.observeVodCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val contentRegion: StateFlow<ContentRegion> = sessionManager.contentRegionFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), sessionManager.getCachedContentRegion())
+
+    val pinnedGroups: StateFlow<Set<String>> = sessionManager.pinnedGroupsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), sessionManager.getCachedPinnedGroups())
 
     private val _selectedCategory = MutableStateFlow<Category?>(null)
     val selectedCategory: StateFlow<Category?> = _selectedCategory.asStateFlow()
@@ -43,11 +54,15 @@ class MoviesViewModel @Inject constructor(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
-        // Auto-select first category when loaded
+        // Auto-select first category based on user's prioritized groups
         viewModelScope.launch {
-            categories.collect { cats ->
+            combine(categories, contentRegion, pinnedGroups) { cats, region, pinned ->
+                Triple(cats, region, pinned)
+            }.collect { (cats, region, pinned) ->
                 if (_selectedCategory.value == null && cats.isNotEmpty()) {
-                    _selectedCategory.value = cats.first()
+                    val groups = CategoryGroupHelper.buildGroups(cats, region, pinned)
+                    val firstPriorityCat = groups.firstOrNull()?.categories?.firstOrNull()?.category
+                    _selectedCategory.value = firstPriorityCat ?: cats.first()
                 }
             }
         }
@@ -55,6 +70,12 @@ class MoviesViewModel @Inject constructor(
 
     fun selectCategory(category: Category) {
         _selectedCategory.value = category
+    }
+
+    fun togglePinGroup(groupName: String) {
+        viewModelScope.launch {
+            sessionManager.togglePinGroup(groupName)
+        }
     }
 
     fun refreshMovies() {

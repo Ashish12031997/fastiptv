@@ -38,6 +38,7 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.fastiptv.BuildConfig
+import com.fastiptv.domain.model.ContentRegion
 import com.fastiptv.ota.OtaUpdateState
 import com.fastiptv.ui.theme.AccentBlue
 import com.fastiptv.ui.theme.DarkBackground
@@ -86,6 +87,9 @@ fun SettingsScreen(
     val preferredStreamFormat by viewModel.preferredStreamFormat.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
+    val selectedRegion by viewModel.selectedRegion.collectAsState()
+    val detectedRegion = viewModel.detectedRegion
+    val pinnedGroups by viewModel.pinnedGroups.collectAsState()
 
     var host by remember(currentConfig) { mutableStateOf(currentConfig?.host ?: "") }
     var port by remember(currentConfig) { mutableStateOf(currentConfig?.port?.toString() ?: "8080") }
@@ -348,6 +352,162 @@ fun SettingsScreen(
                                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
                             )
                         }
+                    }
+                }
+            }
+
+            // Content & Region Preferences Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(DarkSurface)
+                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Content Region & Category Priority",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextWhite
+                    )
+
+                    val activeDesc = if (selectedRegion == ContentRegion.AUTO) {
+                        "Active Profile: 🌐 Auto-Detect (Detected: ${detectedRegion.flag} ${detectedRegion.displayName}) • ${detectedRegion.description}"
+                    } else {
+                        "Active Profile: ${selectedRegion.flag} ${selectedRegion.displayName} • ${selectedRegion.description}"
+                    }
+
+                    Text(
+                        text = activeDesc,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF60A5FA)
+                    )
+
+                    // Region Selector Rows
+                    val regions = ContentRegion.entries
+                    val row1 = regions.take(4)
+                    val row2 = regions.drop(4)
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                    ) {
+                        row1.forEach { r ->
+                            val isSelected = selectedRegion == r
+                            Button(
+                                onClick = { viewModel.setContentRegion(r) },
+                                colors = ButtonDefaults.colors(
+                                    containerColor = if (isSelected) AccentBlue.copy(alpha = 0.35f) else DarkSurfaceElevated,
+                                    focusedContainerColor = AccentBlue,
+                                    contentColor = if (isSelected) Color(0xFF38BDF8) else TextWhite,
+                                    focusedContentColor = TextWhite
+                                ),
+                                border = ButtonDefaults.border(
+                                    border = Border(border = BorderStroke(1.5.dp, if (isSelected) AccentBlue else Color.White.copy(alpha = 0.15f))),
+                                    focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                                ),
+                                shape = ButtonDefaults.shape(RoundedCornerShape(8.dp))
+                            ) {
+                                Text(
+                                    text = if (isSelected) "● ${r.flag} ${r.displayName}" else "○ ${r.flag} ${r.displayName}",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                    ) {
+                        row2.forEach { r ->
+                            val isSelected = selectedRegion == r
+                            Button(
+                                onClick = { viewModel.setContentRegion(r) },
+                                colors = ButtonDefaults.colors(
+                                    containerColor = if (isSelected) AccentBlue.copy(alpha = 0.35f) else DarkSurfaceElevated,
+                                    focusedContainerColor = AccentBlue,
+                                    contentColor = if (isSelected) Color(0xFF38BDF8) else TextWhite,
+                                    focusedContentColor = TextWhite
+                                ),
+                                border = ButtonDefaults.border(
+                                    border = Border(border = BorderStroke(1.5.dp, if (isSelected) AccentBlue else Color.White.copy(alpha = 0.15f))),
+                                    focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
+                                ),
+                                shape = ButtonDefaults.shape(RoundedCornerShape(8.dp))
+                            ) {
+                                Text(
+                                    text = if (isSelected) "● ${r.flag} ${r.displayName}" else "○ ${r.flag} ${r.displayName}",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Pinned Groups Section
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (pinnedGroups.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⭐ Pinned Groups (${pinnedGroups.size}) — Always at the very top of lists:",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFDE047)
+                            )
+                            Button(
+                                onClick = { viewModel.unpinAllGroups() },
+                                colors = ButtonDefaults.colors(
+                                    containerColor = DarkSurfaceElevated,
+                                    focusedContainerColor = LiveRed.copy(alpha = 0.85f),
+                                    contentColor = TextMuted,
+                                    focusedContentColor = TextWhite
+                                ),
+                                border = ButtonDefaults.border(
+                                    focusedBorder = Border(border = BorderStroke(2.dp, Color(0xFF38BDF8)))
+                                ),
+                                shape = ButtonDefaults.shape(RoundedCornerShape(6.dp))
+                            ) {
+                                Text("Clear All Pinned", fontSize = 11.sp)
+                            }
+                        }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            pinnedGroups.forEach { groupName ->
+                                Button(
+                                    onClick = { viewModel.unpinGroup(groupName) },
+                                    colors = ButtonDefaults.colors(
+                                        containerColor = Color(0xFFFDE047).copy(alpha = 0.15f),
+                                        focusedContainerColor = LiveRed.copy(alpha = 0.8f),
+                                        contentColor = Color(0xFFFDE047),
+                                        focusedContentColor = TextWhite
+                                    ),
+                                    border = ButtonDefaults.border(
+                                        border = Border(border = BorderStroke(1.dp, Color(0xFFFDE047).copy(alpha = 0.4f))),
+                                        focusedBorder = Border(border = BorderStroke(2.dp, Color(0xFF38BDF8)))
+                                    ),
+                                    shape = ButtonDefaults.shape(RoundedCornerShape(6.dp))
+                                ) {
+                                    Text("⭐ $groupName ✕", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "💡 Tip: Long-press OK on any group header in Live TV or Movies/Series sidebar to pin it directly to the top with a ⭐ badge.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextMuted
+                        )
                     }
                 }
             }

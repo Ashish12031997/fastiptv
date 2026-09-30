@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.fastiptv.domain.model.ContentRegion
 import com.fastiptv.domain.model.ServerConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +32,8 @@ class SessionManager @Inject constructor(
         val KEY_PASSWORD = stringPreferencesKey("server_password")
         val KEY_PROTOCOL = stringPreferencesKey("server_protocol")
         val KEY_STREAM_FORMAT = stringPreferencesKey("stream_format")
+        val KEY_CONTENT_REGION = stringPreferencesKey("content_region")
+        val KEY_PINNED_GROUPS = stringSetPreferencesKey("pinned_category_groups")
     }
 
     @Volatile
@@ -38,8 +42,22 @@ class SessionManager @Inject constructor(
     @Volatile
     private var cachedConfig: ServerConfig? = null
 
+    @Volatile
+    private var cachedContentRegion: ContentRegion = ContentRegion.AUTO
+
+    @Volatile
+    private var cachedPinnedGroups: Set<String> = emptySet()
+
     val preferredStreamFormatFlow: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[KEY_STREAM_FORMAT] ?: "ts"
+    }
+
+    val contentRegionFlow: Flow<ContentRegion> = context.dataStore.data.map { preferences ->
+        ContentRegion.fromId(preferences[KEY_CONTENT_REGION])
+    }
+
+    val pinnedGroupsFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        preferences[KEY_PINNED_GROUPS] ?: emptySet()
     }
 
     val serverConfigFlow: Flow<ServerConfig?> = context.dataStore.data.map { preferences ->
@@ -73,16 +91,72 @@ class SessionManager @Inject constructor(
                 cachedStreamFormat = format
             }
         }
+        CoroutineScope(Dispatchers.IO).launch {
+            contentRegionFlow.collect { region ->
+                cachedContentRegion = region
+            }
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            pinnedGroupsFlow.collect { pinned ->
+                cachedPinnedGroups = pinned
+            }
+        }
     }
 
     fun getCachedConfig(): ServerConfig? = cachedConfig
 
     fun getCachedStreamFormat(): String = cachedStreamFormat
 
+    fun getCachedContentRegion(): ContentRegion = cachedContentRegion
+
+    fun getCachedPinnedGroups(): Set<String> = cachedPinnedGroups
+
     suspend fun savePreferredStreamFormat(format: String) {
         cachedStreamFormat = format
         context.dataStore.edit { preferences ->
             preferences[KEY_STREAM_FORMAT] = format
+        }
+    }
+
+    suspend fun saveContentRegion(region: ContentRegion) {
+        cachedContentRegion = region
+        context.dataStore.edit { preferences ->
+            preferences[KEY_CONTENT_REGION] = region.id
+        }
+    }
+
+    suspend fun togglePinGroup(groupName: String): Boolean {
+        val upper = groupName.trim().uppercase()
+        var nowPinned = false
+        context.dataStore.edit { preferences ->
+            val current = preferences[KEY_PINNED_GROUPS] ?: emptySet()
+            val updated = if (current.contains(upper)) {
+                nowPinned = false
+                current - upper
+            } else {
+                nowPinned = true
+                current + upper
+            }
+            preferences[KEY_PINNED_GROUPS] = updated
+            cachedPinnedGroups = updated
+        }
+        return nowPinned
+    }
+
+    suspend fun unpinGroup(groupName: String) {
+        val upper = groupName.trim().uppercase()
+        context.dataStore.edit { preferences ->
+            val current = preferences[KEY_PINNED_GROUPS] ?: emptySet()
+            val updated = current - upper
+            preferences[KEY_PINNED_GROUPS] = updated
+            cachedPinnedGroups = updated
+        }
+    }
+
+    suspend fun unpinAllGroups() {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_PINNED_GROUPS] = emptySet()
+            cachedPinnedGroups = emptySet()
         }
     }
 

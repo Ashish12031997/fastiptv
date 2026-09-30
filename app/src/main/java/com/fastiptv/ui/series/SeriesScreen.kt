@@ -83,6 +83,8 @@ fun SeriesScreen(
     viewModel: SeriesViewModel = hiltViewModel()
 ) {
     val categories by viewModel.categories.collectAsState()
+    val contentRegion by viewModel.contentRegion.collectAsState()
+    val pinnedGroups by viewModel.pinnedGroups.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val seriesList by viewModel.seriesList.collectAsState()
     val selectedSeries by viewModel.selectedSeries.collectAsState()
@@ -188,6 +190,9 @@ fun SeriesScreen(
                     contentFocusRequester = gridFocusRequester,
                     sidebarFirstItemFocusRequester = sidebarFocusRequester,
                     topNavFocusRequester = topNavFocusRequester,
+                    region = contentRegion,
+                    pinnedGroups = pinnedGroups,
+                    onTogglePinGroup = { groupName -> viewModel.togglePinGroup(groupName) },
                     modifier = Modifier.onFocusChanged { isSidebarFocused = it.hasFocus }
                 )
 

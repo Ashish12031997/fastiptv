@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fastiptv.data.api.XtreamApi
 import com.fastiptv.data.session.SessionManager
+import com.fastiptv.domain.model.ContentRegion
 import com.fastiptv.domain.model.ServerConfig
 import com.fastiptv.domain.repository.IptvRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +41,14 @@ class SettingsViewModel @Inject constructor(
 
     val updateState: StateFlow<OtaUpdateState> = otaUpdateManager.updateState
 
+    val selectedRegion: StateFlow<ContentRegion> = sessionManager.contentRegionFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), sessionManager.getCachedContentRegion())
+
+    val detectedRegion: ContentRegion = ContentRegion.detectFromSystem()
+
+    val pinnedGroups: StateFlow<Set<String>> = sessionManager.pinnedGroupsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), sessionManager.getCachedPinnedGroups())
+
     private val _statusMessage = MutableStateFlow<String?>(null)
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
 
@@ -66,6 +75,27 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             sessionManager.savePreferredStreamFormat(format)
             _statusMessage.value = "Stream format set to ${format.uppercase()}."
+        }
+    }
+
+    fun setContentRegion(region: com.fastiptv.domain.model.ContentRegion) {
+        viewModelScope.launch {
+            sessionManager.saveContentRegion(region)
+            _statusMessage.value = "Content region set to ${region.displayName}."
+        }
+    }
+
+    fun unpinGroup(groupName: String) {
+        viewModelScope.launch {
+            sessionManager.unpinGroup(groupName)
+            _statusMessage.value = "Unpinned $groupName."
+        }
+    }
+
+    fun unpinAllGroups() {
+        viewModelScope.launch {
+            sessionManager.unpinAllGroups()
+            _statusMessage.value = "All groups unpinned."
         }
     }
 
