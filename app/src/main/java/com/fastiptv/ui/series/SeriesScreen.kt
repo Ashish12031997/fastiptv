@@ -115,8 +115,10 @@ fun SeriesScreen(
         } catch (_: Exception) {}
     }
 
+    var hasInitialFocused by remember { mutableStateOf(false) }
     LaunchedEffect(categories) {
-        if (categories.isNotEmpty()) {
+        if (!hasInitialFocused && categories.isNotEmpty()) {
+            hasInitialFocused = true
             kotlinx.coroutines.delay(150)
             try {
                 sidebarFocusRequester.requestFocus()
@@ -252,33 +254,31 @@ fun SeriesScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Series Grid
-                    if (seriesList.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(
-                                    color = AccentBlue,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "Loading ${parsed?.cleanName ?: "series"}...",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextMuted
-                                )
+                    // Series Grid Container
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f)
+                    ) {
+                        if (seriesList.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(
+                                        color = AccentBlue,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = if (isLoadingDetail) "Loading ${parsed?.cleanName ?: "series"}..." else "No series in this category",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextMuted
+                                    )
+                                }
                             }
-                        }
-                    } else {
-                        BoxWithConstraints(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .weight(1f)
-                        ) {
+                        } else {
                             val minWidth = 140.dp
                             val spacing = 14.dp
                             val columnCount = maxOf(1, ((maxWidth + spacing) / (minWidth + spacing)).toInt())
@@ -296,7 +296,6 @@ fun SeriesScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 itemsIndexed(seriesList, key = { _, series -> "series_${series.id}" }) { index, series ->
-                                    val isLeftEdge = (index % columnCount == 0)
                                     val isTargetOfGridFocus = (index == activeGridItemIndex)
 
                                     val itemModifier = Modifier
@@ -305,9 +304,6 @@ fun SeriesScreen(
                                             else Modifier
                                         )
                                         .focusProperties {
-                                            if (isLeftEdge) {
-                                                left = sidebarFocusRequester
-                                            }
                                             if (index < columnCount && topNavFocusRequester != null) {
                                                 up = topNavFocusRequester
                                             }

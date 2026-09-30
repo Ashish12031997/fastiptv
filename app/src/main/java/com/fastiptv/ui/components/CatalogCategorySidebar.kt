@@ -230,8 +230,11 @@ fun CatalogCategorySidebar(
         }
     }
 
+    // Programmatically scroll to selected item ONLY once on initial mount (never during active navigation)
+    var hasInitialScrolled by remember { mutableStateOf(false) }
     LaunchedEffect(selectedItemIndex) {
-        if (selectedItemIndex >= 0) {
+        if (!hasInitialScrolled && selectedItemIndex >= 0) {
+            hasInitialScrolled = true
             try {
                 listState.scrollToItem((selectedItemIndex - 2).coerceAtLeast(0))
             } catch (_: Exception) {}
@@ -410,7 +413,7 @@ fun CatalogCategorySidebar(
                     key = { _, item ->
                         when (item) {
                             is SidebarItem.GroupHeader -> "group_${item.group.groupName}"
-                            is SidebarItem.CategoryItem -> "cat_${item.parsed.category.id}"
+                            is SidebarItem.CategoryItem -> "cat_${item.groupName}_${item.parsed.category.id}"
                             is SidebarItem.Separator -> item.id
                         }
                     }
@@ -443,8 +446,7 @@ fun CatalogCategorySidebar(
                                         Modifier.focusRequester(sidebarFirstItemFocusRequester)
                                     } else Modifier
                                 ),
-                                upFocusRequester = if (index == 0) filterBoxFocusRequester else null,
-                                rightFocusRequester = contentFocusRequester
+                                upFocusRequester = if (index == 0) filterBoxFocusRequester else null
                             )
                         }
 
@@ -452,26 +454,14 @@ fun CatalogCategorySidebar(
                             val isSelected = item.parsed.category.id == selectedCategory?.id
                             var isItemFocused by remember { mutableStateOf(false) }
 
-                            // Determine if this item should get the sidebar focus requester
-                            val isFirstFocusable = index == 0 ||
-                                    (sidebarItems.take(index).none { it is SidebarItem.CategoryItem || it is SidebarItem.GroupHeader })
-                            val isSelectedItem = selectedItemIndex == index
-
-                            val shouldAttachSidebarFocus = if (selectedItemIndex >= 0) {
-                                isSelectedItem
-                            } else {
-                                isFirstFocusable
-                            }
-
                             val isInsideGroup = item.groupName != "GENERAL" &&
-                                    sidebarItems.any { it is SidebarItem.GroupHeader && (it as SidebarItem.GroupHeader).group.groupName == item.groupName }
+                                    sidebarItems.any { it is SidebarItem.GroupHeader && it.group.groupName == item.groupName }
 
                             val itemModifier = Modifier
                                 .fillMaxWidth()
                                 .height(40.dp)
                                 .then(
-                                    if (shouldAttachSidebarFocus && sidebarFirstItemFocusRequester != null &&
-                                        sidebarItems.getOrNull(0) !is SidebarItem.GroupHeader) {
+                                    if (index == 0 && sidebarFirstItemFocusRequester != null) {
                                         Modifier.focusRequester(sidebarFirstItemFocusRequester)
                                     } else Modifier
                                 )
@@ -479,9 +469,16 @@ fun CatalogCategorySidebar(
                                     if (index == 0) {
                                         up = filterBoxFocusRequester
                                     }
-                                    if (contentFocusRequester != null) {
-                                        right = contentFocusRequester
-                                    }
+                                }
+                                .onKeyEvent { keyEvent ->
+                                    val native = keyEvent.nativeKeyEvent
+                                    if (native.action == AndroidKeyEvent.ACTION_DOWN && native.keyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT) {
+                                        debounceSelectJob?.cancel()
+                                        if (item.parsed.category.id != selectedCategory?.id) {
+                                            onSelectCategory(item.parsed.category)
+                                        }
+                                        false
+                                    } else false
                                 }
                                 .onFocusChanged { state ->
                                     isItemFocused = state.isFocused
@@ -490,7 +487,7 @@ fun CatalogCategorySidebar(
                                         if (item.parsed.category.id != selectedCategory?.id) {
                                             debounceSelectJob?.cancel()
                                             debounceSelectJob = coroutineScope.launch {
-                                                delay(150)
+                                                delay(500L) // 500ms settle time ensures fast scrolling does 0 DB queries
                                                 onSelectCategory(item.parsed.category)
                                             }
                                         }
@@ -506,7 +503,7 @@ fun CatalogCategorySidebar(
                                     } catch (_: Exception) {}
                                 },
                                 modifier = itemModifier,
-                                scale = CardDefaults.scale(focusedScale = 1.04f),
+                                scale = CardDefaults.scale(focusedScale = 1.0f), // Invariant layout prevents jitter
                                 colors = CardDefaults.colors(
                                     containerColor = if (isSelected) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color.Transparent,
                                     focusedContainerColor = Color(0xFF1E3A8A)
@@ -518,7 +515,7 @@ fun CatalogCategorySidebar(
                                             if (isSelected) Color(0xFF38BDF8).copy(alpha = 0.6f) else Color.Transparent
                                         )
                                     ),
-                                    focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF38BDF8)))
+                                    focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
                                 ),
                                 shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
                             ) {
@@ -596,8 +593,7 @@ private fun GroupHeaderRow(
     onToggle: () -> Unit,
     onTogglePin: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    upFocusRequester: FocusRequester? = null,
-    rightFocusRequester: FocusRequester? = null
+    upFocusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     var keyDownTime by remember { mutableStateOf(0L) }
@@ -618,7 +614,6 @@ private fun GroupHeaderRow(
             .onFocusChanged { isFocused = it.isFocused }
             .focusProperties {
                 if (upFocusRequester != null) up = upFocusRequester
-                if (rightFocusRequester != null) right = rightFocusRequester
             }
             .onKeyEvent { keyEvent ->
                 val nativeEvent = keyEvent.nativeKeyEvent
@@ -656,7 +651,7 @@ private fun GroupHeaderRow(
                     false
                 }
             },
-        scale = CardDefaults.scale(focusedScale = 1.03f),
+        scale = CardDefaults.scale(focusedScale = 1.0f),
         colors = CardDefaults.colors(
             containerColor = when {
                 group.isPinned -> Color(0xFF2E2408).copy(alpha = 0.65f)

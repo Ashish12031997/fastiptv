@@ -586,8 +586,10 @@ fun IndianCableSideDrawer(
         if (idx >= 0) idx else 0
     }
 
+    var hasInitialCategoryScrolled by remember { mutableStateOf(false) }
     LaunchedEffect(selectedItemIndex) {
-        if (selectedItemIndex >= 0) {
+        if (!hasInitialCategoryScrolled && selectedItemIndex >= 0) {
+            hasInitialCategoryScrolled = true
             try {
                 categoryListState.scrollToItem((selectedItemIndex - 2).coerceAtLeast(0))
             } catch (_: Exception) {}
@@ -663,10 +665,10 @@ fun IndianCableSideDrawer(
                     sidebarItems,
                     key = { _, item ->
                         when (item) {
-                            is DrawerSidebarItem.RecentItem -> "RECENT"
-                            is DrawerSidebarItem.GroupHeader -> "group_${item.group.groupName}"
-                            is DrawerSidebarItem.CategoryItem -> "cat_${item.parsed.category.id}"
-                            is DrawerSidebarItem.Separator -> item.id
+                            is DrawerSidebarItem.RecentItem -> "drawer_recent"
+                            is DrawerSidebarItem.GroupHeader -> "drawer_group_${item.group.groupName}"
+                            is DrawerSidebarItem.CategoryItem -> "drawer_cat_${item.groupName}_${item.parsed.category.id}"
+                            is DrawerSidebarItem.Separator -> "drawer_sep_${item.id}"
                         }
                     }
                 ) { index, item ->
@@ -684,7 +686,6 @@ fun IndianCableSideDrawer(
                         is DrawerSidebarItem.RecentItem -> {
                             val isSelected = selectedCategory?.id == "RECENT"
                             var isCatFocused by remember { mutableStateOf(false) }
-                            val shouldAttachFocus = selectedItemIndex == index
 
                             Card(
                                 onClick = {
@@ -697,8 +698,18 @@ fun IndianCableSideDrawer(
                                     .fillMaxWidth()
                                     .height(44.dp)
                                     .then(
-                                        if (shouldAttachFocus) Modifier.focusRequester(categoryFocusRequester) else Modifier
+                                        if (index == 0) Modifier.focusRequester(categoryFocusRequester) else Modifier
                                     )
+                                    .onKeyEvent { keyEvent ->
+                                        val native = keyEvent.nativeKeyEvent
+                                        if (native.action == KeyEvent.ACTION_DOWN && native.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                                            debounceCategoryJob?.cancel()
+                                            if (selectedCategory?.id != "RECENT") {
+                                                onSelectCategory(Category(id = "RECENT", name = "⭐ Recent", type = CategoryType.LIVE))
+                                            }
+                                            false
+                                        } else false
+                                    }
                                     .onFocusChanged { state ->
                                         isCatFocused = state.isFocused
                                         if (state.isFocused) {
@@ -706,16 +717,13 @@ fun IndianCableSideDrawer(
                                             if (selectedCategory?.id != "RECENT") {
                                                 debounceCategoryJob?.cancel()
                                                 debounceCategoryJob = coroutineScope.launch {
-                                                    delay(150L)
+                                                    delay(400L)
                                                     onSelectCategory(Category(id = "RECENT", name = "⭐ Recent", type = CategoryType.LIVE))
                                                 }
                                             }
                                         }
-                                    }
-                                    .focusProperties {
-                                        right = channelListFocusRequester
                                     },
-                                scale = CardDefaults.scale(focusedScale = 1.04f),
+                                scale = CardDefaults.scale(focusedScale = 1.0f),
                                 colors = CardDefaults.colors(
                                     containerColor = if (isSelected) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color.Transparent,
                                     focusedContainerColor = Color(0xFF1D4ED8)
@@ -727,7 +735,7 @@ fun IndianCableSideDrawer(
                                             if (isSelected) Color(0xFF38BDF8).copy(alpha = 0.6f) else Color.Transparent
                                         )
                                     ),
-                                    focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF60A5FA)))
+                                    focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF60A5FA)))
                                 ),
                                 shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
                             ) {
@@ -773,7 +781,6 @@ fun IndianCableSideDrawer(
                         is DrawerSidebarItem.GroupHeader -> {
                             var isFocused by remember { mutableStateOf(false) }
                             var keyDownTime by remember { mutableStateOf(0L) }
-                            val shouldAttachFocus = selectedItemIndex < 0 && index == 1
 
                             val priorityColor = when {
                                 item.group.isPinned -> Color(0xFFFDE047)
@@ -795,16 +802,13 @@ fun IndianCableSideDrawer(
                                     .fillMaxWidth()
                                     .height(40.dp)
                                     .then(
-                                        if (shouldAttachFocus) Modifier.focusRequester(categoryFocusRequester) else Modifier
+                                        if (index == 0) Modifier.focusRequester(categoryFocusRequester) else Modifier
                                     )
                                     .onFocusChanged { state ->
                                         isFocused = state.isFocused
                                         if (state.isFocused) {
                                             onChannelFocused(false)
                                         }
-                                    }
-                                    .focusProperties {
-                                        right = channelListFocusRequester
                                     }
                                     .onKeyEvent { keyEvent ->
                                         val nativeEvent = keyEvent.nativeKeyEvent
@@ -838,7 +842,7 @@ fun IndianCableSideDrawer(
                                             false
                                         }
                                     },
-                                scale = CardDefaults.scale(focusedScale = 1.03f),
+                                scale = CardDefaults.scale(focusedScale = 1.0f),
                                 colors = CardDefaults.colors(
                                     containerColor = when {
                                         item.group.isPinned -> Color(0xFF2E2408).copy(alpha = 0.65f)
@@ -936,7 +940,6 @@ fun IndianCableSideDrawer(
                         is DrawerSidebarItem.CategoryItem -> {
                             val isSelected = item.parsed.category.id == selectedCategory?.id
                             var isCatFocused by remember { mutableStateOf(false) }
-                            val shouldAttachFocus = selectedItemIndex == index
 
                             val isInsideGroup = sidebarItems.any {
                                 it is DrawerSidebarItem.GroupHeader && it.group.groupName == item.groupName
@@ -944,6 +947,7 @@ fun IndianCableSideDrawer(
 
                             Card(
                                 onClick = {
+                                    debounceCategoryJob?.cancel()
                                     onSelectCategory(item.parsed.category)
                                     try {
                                         channelListFocusRequester.requestFocus()
@@ -953,8 +957,18 @@ fun IndianCableSideDrawer(
                                     .fillMaxWidth()
                                     .height(40.dp)
                                     .then(
-                                        if (shouldAttachFocus) Modifier.focusRequester(categoryFocusRequester) else Modifier
+                                        if (index == 0) Modifier.focusRequester(categoryFocusRequester) else Modifier
                                     )
+                                    .onKeyEvent { keyEvent ->
+                                        val native = keyEvent.nativeKeyEvent
+                                        if (native.action == KeyEvent.ACTION_DOWN && native.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                                            debounceCategoryJob?.cancel()
+                                            if (item.parsed.category.id != selectedCategory?.id) {
+                                                onSelectCategory(item.parsed.category)
+                                            }
+                                            false
+                                        } else false
+                                    }
                                     .onFocusChanged { state ->
                                         isCatFocused = state.isFocused
                                         if (state.isFocused) {
@@ -962,16 +976,13 @@ fun IndianCableSideDrawer(
                                             if (item.parsed.category.id != selectedCategory?.id) {
                                                 debounceCategoryJob?.cancel()
                                                 debounceCategoryJob = coroutineScope.launch {
-                                                    delay(150L)
+                                                    delay(400L) // 400ms settle time ensures fast browsing does zero DB queries
                                                     onSelectCategory(item.parsed.category)
                                                 }
                                             }
                                         }
-                                    }
-                                    .focusProperties {
-                                        right = channelListFocusRequester
                                     },
-                                scale = CardDefaults.scale(focusedScale = 1.04f),
+                                scale = CardDefaults.scale(focusedScale = 1.0f),
                                 colors = CardDefaults.colors(
                                     containerColor = if (isSelected) Color(0xFF1E3A8A).copy(alpha = 0.5f) else Color.Transparent,
                                     focusedContainerColor = Color(0xFF1D4ED8)
@@ -983,7 +994,7 @@ fun IndianCableSideDrawer(
                                             if (isSelected) Color(0xFF38BDF8).copy(alpha = 0.6f) else Color.Transparent
                                         )
                                     ),
-                                    focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF60A5FA)))
+                                    focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF60A5FA)))
                                 ),
                                 shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
                             ) {
@@ -1098,17 +1109,15 @@ fun IndianCableSideDrawer(
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
-                    itemsIndexed(channels, key = { _, ch -> ch.id }) { index, channel ->
+                    itemsIndexed(channels, key = { _, ch -> "ch_${ch.id}" }) { index, channel ->
                         val isCurrent = channel.id == currentChannelId
                         var isItemFocused by remember { mutableStateOf(false) }
-                        val targetFocusIndex = if (currentChannelIndex in channels.indices && channels.any { it.id == currentChannelId }) currentChannelIndex else 0
-                        val shouldAttachFocus = index == targetFocusIndex
 
                         val itemModifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
                             .then(
-                                if (shouldAttachFocus) Modifier.focusRequester(channelListFocusRequester) else Modifier
+                                if (index == 0) Modifier.focusRequester(channelListFocusRequester) else Modifier
                             )
                             .onFocusChanged {
                                 isItemFocused = it.isFocused
@@ -1116,21 +1125,18 @@ fun IndianCableSideDrawer(
                                     onChannelFocused(true)
                                 }
                             }
-                            .focusProperties {
-                                left = categoryFocusRequester
-                            }
 
                         Card(
                             onClick = { onSelectChannel(channel) },
                             modifier = itemModifier,
-                            scale = CardDefaults.scale(focusedScale = 1.04f),
+                            scale = CardDefaults.scale(focusedScale = 1.0f),
                             colors = CardDefaults.colors(
                                 containerColor = if (isCurrent) Color(0xFF1E3A8A).copy(alpha = 0.6f) else DarkSurface,
                                 focusedContainerColor = Color(0xFF1D4ED8)
                             ),
                             border = CardDefaults.border(
                                 border = Border(border = BorderStroke(1.dp, if (isCurrent) Color(0xFF38BDF8) else GlassBorder)),
-                                focusedBorder = Border(border = BorderStroke(3.dp, Color(0xFF60A5FA)))
+                                focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF60A5FA)))
                             ),
                             shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
                         ) {

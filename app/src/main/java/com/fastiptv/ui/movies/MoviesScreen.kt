@@ -98,8 +98,10 @@ fun MoviesScreen(
         } catch (_: Exception) {}
     }
 
+    var hasInitialFocused by remember { mutableStateOf(false) }
     LaunchedEffect(categories) {
-        if (categories.isNotEmpty()) {
+        if (!hasInitialFocused && categories.isNotEmpty()) {
+            hasInitialFocused = true
             delay(150)
             try {
                 sidebarFocusRequester.requestFocus()
@@ -227,33 +229,31 @@ fun MoviesScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Movie Grid
-                    if (movies.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(
-                                    color = AccentBlue,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "Loading ${parsed?.cleanName ?: "movies"}...",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextMuted
-                                )
+                    // Movie Grid Container
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f)
+                    ) {
+                        if (movies.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(
+                                        color = AccentBlue,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = if (isLoading) "Loading ${parsed?.cleanName ?: "movies"}..." else "No movies in this category",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextMuted
+                                    )
+                                }
                             }
-                        }
-                    } else {
-                        BoxWithConstraints(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .weight(1f)
-                        ) {
+                        } else {
                             val minWidth = 140.dp
                             val spacing = 14.dp
                             val columnCount = maxOf(1, ((maxWidth + spacing) / (minWidth + spacing)).toInt())
@@ -271,7 +271,6 @@ fun MoviesScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 itemsIndexed(movies, key = { _, movie -> "movie_${movie.id}" }) { index, movie ->
-                                    val isLeftEdge = (index % columnCount == 0)
                                     val isTargetOfGridFocus = (index == activeGridItemIndex)
 
                                     val itemModifier = Modifier
@@ -280,9 +279,6 @@ fun MoviesScreen(
                                             else Modifier
                                         )
                                         .focusProperties {
-                                            if (isLeftEdge) {
-                                                left = sidebarFocusRequester
-                                            }
                                             if (index < columnCount && topNavFocusRequester != null) {
                                                 up = topNavFocusRequester
                                             }
