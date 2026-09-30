@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +31,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -123,6 +128,8 @@ fun CatalogCategorySidebar(
     }
 
     val activeFocusRequester = remember { FocusRequester() }
+    val coroutineScope = rememberCoroutineScope()
+    var debounceSelectJob by remember { mutableStateOf<Job?>(null) }
 
     Box(
         modifier = modifier
@@ -272,26 +279,39 @@ fun CatalogCategorySidebar(
                     ) {
                         items(topGroups) { group ->
                             val isGroupSelected = group == selectedGroup
+                            var isGroupFocused by remember { mutableStateOf(false) }
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
-                                        if (isGroupSelected) AccentBlue.copy(alpha = 0.25f)
+                                        if (isGroupFocused) Color(0xFF1E3A8A)
+                                        else if (isGroupSelected) AccentBlue.copy(alpha = 0.35f)
                                         else DarkSurface
                                     )
                                     .border(
-                                        width = 1.dp,
-                                        color = if (isGroupSelected) AccentBlue else GlassBorder,
+                                        width = if (isGroupFocused) 2.5.dp else 1.dp,
+                                        color = if (isGroupFocused) Color(0xFF60A5FA) else if (isGroupSelected) AccentBlue else GlassBorder,
                                         shape = RoundedCornerShape(12.dp)
                                     )
+                                    .focusable()
+                                    .onFocusChanged { isGroupFocused = it.isFocused }
+                                    .focusProperties {
+                                        up = filterBoxFocusRequester
+                                        if (sidebarFirstItemFocusRequester != null) {
+                                            down = sidebarFirstItemFocusRequester
+                                        }
+                                        if (contentFocusRequester != null) {
+                                            right = contentFocusRequester
+                                        }
+                                    }
                                     .clickable { selectedGroup = group }
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
                             ) {
                                 Text(
                                     text = group,
-                                    color = if (isGroupSelected) AccentBlue else TextMuted,
-                                    fontSize = 10.sp,
-                                    fontWeight = if (isGroupSelected) FontWeight.Bold else FontWeight.Medium
+                                    color = if (isGroupFocused) Color.White else if (isGroupSelected) Color(0xFF93C5FD) else TextMuted,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isGroupFocused || isGroupSelected) FontWeight.Bold else FontWeight.Medium
                                 )
                             }
                         }
@@ -347,10 +367,23 @@ fun CatalogCategorySidebar(
                         }
                         .onFocusChanged { state ->
                             isItemFocused = state.isFocused
+                            if (state.isFocused && item.category.id != selectedCategory?.id) {
+                                debounceSelectJob?.cancel()
+                                debounceSelectJob = coroutineScope.launch {
+                                    delay(150)
+                                    onSelectCategory(item.category)
+                                }
+                            }
                         }
 
                     Card(
-                        onClick = { onSelectCategory(item.category) },
+                        onClick = {
+                            debounceSelectJob?.cancel()
+                            onSelectCategory(item.category)
+                            try {
+                                contentFocusRequester?.requestFocus()
+                            } catch (_: Exception) {}
+                        },
                         modifier = itemModifier,
                         scale = CardDefaults.scale(focusedScale = 1.04f),
                         colors = CardDefaults.colors(

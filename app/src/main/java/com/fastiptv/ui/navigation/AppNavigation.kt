@@ -1,19 +1,18 @@
 package com.fastiptv.ui.navigation
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -22,48 +21,53 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import com.fastiptv.ui.components.SimplePlaceholderScreen
 import com.fastiptv.ui.components.TopNavBar
-import com.fastiptv.ui.epg.EpgGridScreen
-import com.fastiptv.ui.favorites.FavoritesScreen
-import com.fastiptv.ui.home.HomeScreen
+import com.fastiptv.ui.livetv.LiveTvScreen
 import com.fastiptv.ui.movies.MoviesScreen
 import com.fastiptv.ui.player.PlayerScreen
-import com.fastiptv.ui.search.SearchScreen
 import com.fastiptv.ui.series.SeriesScreen
 import com.fastiptv.ui.settings.SettingsScreen
 
 @Composable
 fun AppNavigation(
     modifier: Modifier = Modifier,
+    startDestination: String = Screen.Movies.route,
     navController: NavHostController = rememberNavController()
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val isPlayerRoute = currentRoute?.startsWith("player") == true
+    val isFullscreenRoute = currentRoute?.startsWith("player") == true || currentRoute?.startsWith("live_tv") == true
 
     val topNavFocusRequester = remember { FocusRequester() }
+    val contentFocusRequester = remember { FocusRequester() }
+    var isTopNavFocused by remember { mutableStateOf(false) }
 
     // Global Remote Back Handling:
-    // If not in Player and not already on Home, pressing Back always safely returns to Home.
-    // This prevents accidental exits or unwanted jumps to Settings.
-    BackHandler(enabled = !isPlayerRoute && currentRoute != null && currentRoute != Screen.Home.route) {
-        navController.navigate(Screen.Home.route) {
-            popUpTo(Screen.Home.route) { inclusive = false }
+    // If not in Fullscreen video and not already on Movies, pressing Back always safely returns to Movies (Default).
+    BackHandler(enabled = !isFullscreenRoute && currentRoute != null && currentRoute != Screen.Movies.route) {
+        navController.navigate(Screen.Movies.route) {
+            popUpTo(Screen.Movies.route) { inclusive = false }
             launchSingleTop = true
         }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Top Navigation Bar (Hidden when in fullscreen player)
-        if (!isPlayerRoute) {
+        // Top Navigation Bar (Hidden when in fullscreen player or fullscreen Live TV)
+        if (!isFullscreenRoute) {
             TopNavBar(
                 currentRoute = currentRoute,
                 topNavFocusRequester = topNavFocusRequester,
+                contentFocusRequester = contentFocusRequester,
+                modifier = Modifier.onFocusChanged { isTopNavFocused = it.hasFocus },
                 onNavigate = { targetScreen ->
-                    navController.navigate(targetScreen.route) {
-                        popUpTo(Screen.Home.route) {
+                    val destination = if (targetScreen == Screen.LiveTv) {
+                        Screen.LiveTv.createRoute()
+                    } else {
+                        targetScreen.route
+                    }
+                    navController.navigate(destination) {
+                        popUpTo(Screen.Movies.route) {
                             saveState = true
                         }
                         launchSingleTop = true
@@ -75,7 +79,7 @@ fun AppNavigation(
 
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = startDestination,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -83,19 +87,28 @@ fun AppNavigation(
                     up = topNavFocusRequester
                 }
         ) {
-            composable(Screen.Home.route) {
-                HomeScreen(
-                    onChannelClick = { channel ->
-                        navController.navigate(Screen.Player.createRoute(channel.id, channel.name, "live"))
+            // 1. Movies (Default start screen)
+            composable(Screen.Movies.route) {
+                MoviesScreen(
+                    onMovieClick = { movie ->
+                        navController.navigate(
+                            Screen.Player.createRoute(
+                                streamId = movie.id,
+                                title = movie.name,
+                                type = "vod",
+                                ext = movie.containerExt
+                            )
+                        )
                     },
-                    onRecentClick = { recent ->
-                        navController.navigate(Screen.Player.createRoute(recent.streamId, recent.title, recent.type))
-                    },
-                    topNavFocusRequester = topNavFocusRequester
+                    topNavFocusRequester = topNavFocusRequester,
+                    contentFocusRequester = contentFocusRequester,
+                    isTopNavFocused = isTopNavFocused
                 )
             }
+
+            // 2. Live TV (Authentic Indian Cable Set-Top Box Experience)
             composable(
-                route = Screen.Channels.route,
+                route = Screen.LiveTv.route,
                 arguments = listOf(
                     navArgument("categoryId") {
                         type = NavType.StringType
@@ -103,24 +116,40 @@ fun AppNavigation(
                         defaultValue = null
                     }
                 )
-            ) { backStackEntry ->
-                val categoryId = backStackEntry.arguments?.getString("categoryId")
-                HomeScreen(
-                    initialCategoryId = categoryId,
-                    onChannelClick = { channel ->
-                        navController.navigate(Screen.Player.createRoute(channel.id, channel.name, "live"))
-                    },
-                    topNavFocusRequester = topNavFocusRequester
+            ) {
+                LiveTvScreen(
+                    onBackPressed = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate(Screen.Movies.route) {
+                                popUpTo(Screen.Movies.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                 )
             }
-            composable(Screen.Epg.route) {
-                EpgGridScreen(
-                    onChannelClick = { channel ->
-                        navController.navigate(Screen.Player.createRoute(channel.id, channel.name, "live"))
+
+            // 3. Series
+            composable(Screen.Series.route) {
+                SeriesScreen(
+                    onEpisodeClick = { episodeId, episodeTitle, containerExt, seriesId ->
+                        navController.navigate(
+                            Screen.Player.createRoute(
+                                streamId = episodeId,
+                                title = episodeTitle,
+                                type = "series",
+                                ext = containerExt,
+                                seriesId = seriesId
+                            )
+                        )
                     },
-                    topNavFocusRequester = topNavFocusRequester
+                    topNavFocusRequester = topNavFocusRequester,
+                    contentFocusRequester = contentFocusRequester,
+                    isTopNavFocused = isTopNavFocused
                 )
             }
+
+            // 4. Video Player
             composable(
                 route = Screen.Player.route,
                 deepLinks = listOf(
@@ -169,82 +198,8 @@ fun AppNavigation(
                     onBackPressed = { navController.popBackStack() }
                 )
             }
-            composable(Screen.Movies.route) {
-                MoviesScreen(
-                    onMovieClick = { movie ->
-                        navController.navigate(
-                            Screen.Player.createRoute(
-                                streamId = movie.id,
-                                title = movie.name,
-                                type = "vod",
-                                ext = movie.containerExt
-                            )
-                        )
-                    },
-                    topNavFocusRequester = topNavFocusRequester
-                )
-            }
-            composable(Screen.Series.route) {
-                SeriesScreen(
-                    onEpisodeClick = { episodeId, episodeTitle, containerExt, seriesId ->
-                        navController.navigate(
-                            Screen.Player.createRoute(
-                                streamId = episodeId,
-                                title = episodeTitle,
-                                type = "series",
-                                ext = containerExt,
-                                seriesId = seriesId
-                            )
-                        )
-                    },
-                    topNavFocusRequester = topNavFocusRequester
-                )
-            }
-            composable(Screen.Favorites.route) {
-                FavoritesScreen(
-                    onChannelClick = { channel ->
-                        navController.navigate(Screen.Player.createRoute(channel.id, channel.name, "live"))
-                    },
-                    onMovieClick = { movie ->
-                        navController.navigate(
-                            Screen.Player.createRoute(
-                                streamId = movie.id,
-                                title = movie.name,
-                                type = "vod",
-                                ext = movie.containerExt
-                            )
-                        )
-                    }
-                )
-            }
-            composable(Screen.Search.route) {
-                SearchScreen(
-                    onChannelClick = { channel ->
-                        navController.navigate(Screen.Player.createRoute(channel.id, channel.name, "live"))
-                    },
-                    onMovieClick = { movie ->
-                        navController.navigate(
-                            Screen.Player.createRoute(
-                                streamId = movie.id,
-                                title = movie.name,
-                                type = "vod",
-                                ext = movie.containerExt
-                            )
-                        )
-                    },
-                    onEpisodeClick = { episodeId, episodeTitle, containerExt, seriesId ->
-                        navController.navigate(
-                            Screen.Player.createRoute(
-                                streamId = episodeId,
-                                title = episodeTitle,
-                                type = "series",
-                                ext = containerExt,
-                                seriesId = seriesId
-                            )
-                        )
-                    }
-                )
-            }
+
+            // 5. Settings
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     topNavFocusRequester = topNavFocusRequester

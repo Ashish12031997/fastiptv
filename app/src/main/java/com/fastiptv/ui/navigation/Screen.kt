@@ -1,11 +1,12 @@
 package com.fastiptv.ui.navigation
 
 sealed class Screen(val route: String, val title: String) {
-    data object Home : Screen("home", "Home")
-    data object Channels : Screen("channels?categoryId={categoryId}", "Live TV") {
+    data object Movies : Screen("movies", "Movies")
+    data object LiveTv : Screen("live_tv?categoryId={categoryId}", "Live TV") {
         fun createRoute(categoryId: String? = null) =
-            if (categoryId != null) "channels?categoryId=$categoryId" else "channels"
+            if (categoryId != null) "live_tv?categoryId=$categoryId" else "live_tv"
     }
+    data object Series : Screen("series", "Series")
     data object Player : Screen("player/{streamId}?title={title}&type={type}&ext={ext}&seriesId={seriesId}", "Player") {
         fun createRoute(
             streamId: Int,
@@ -21,10 +22,5 @@ sealed class Screen(val route: String, val title: String) {
                     (if (seriesId != null) "&seriesId=$seriesId" else "")
         }
     }
-    data object Movies : Screen("movies", "Movies")
-    data object Series : Screen("series", "Series")
-    data object Favorites : Screen("favorites", "Favorites")
-    data object Search : Screen("search", "Search")
-    data object Epg : Screen("epg", "TV Guide")
     data object Settings : Screen("settings", "Settings")
 }

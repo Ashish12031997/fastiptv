@@ -58,6 +58,7 @@ This app integrates with **Xtream Codes API** — the industry-standard IPTV mid
 - **EPG**: Short EPG per channel + full XMLTV export
 
 See [`docs/XTREAM_API.md`](docs/XTREAM_API.md) for full API reference.
+Ready-to-use Postman collection and environment are available in [`postman/`](postman/README.md).
 
 ---
 

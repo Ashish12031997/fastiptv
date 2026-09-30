@@ -81,6 +81,7 @@ fun SeriesScreen(
     modifier: Modifier = Modifier,
     topNavFocusRequester: FocusRequester? = null,
     contentFocusRequester: FocusRequester? = null,
+    isTopNavFocused: Boolean = false,
     viewModel: SeriesViewModel = hiltViewModel()
 ) {
     val categories by viewModel.categories.collectAsState()
@@ -115,6 +116,15 @@ fun SeriesScreen(
         } catch (_: Exception) {}
     }
 
+    LaunchedEffect(categories) {
+        if (categories.isNotEmpty()) {
+            kotlinx.coroutines.delay(150)
+            try {
+                sidebarFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
     // Remote Back Handling
     BackHandler(enabled = selectedSeries != null) {
         viewModel.closeSeriesDetail()
@@ -126,7 +136,7 @@ fun SeriesScreen(
         } catch (_: Exception) {}
     }
 
-    BackHandler(enabled = selectedSeries == null && isSidebarFocused && !isGridFocused) {
+    BackHandler(enabled = selectedSeries == null && !isGridFocused && !isTopNavFocused) {
         try {
             topNavFocusRequester?.requestFocus()
         } catch (_: Exception) {}
@@ -370,6 +380,9 @@ fun SeriesScreen(
                                             .focusProperties {
                                                 left = sidebarFocusRequester
                                                 down = gridFocusRequester
+                                                if (topNavFocusRequester != null) {
+                                                    up = topNavFocusRequester
+                                                }
                                             }
                                     ) {
                                         Text(

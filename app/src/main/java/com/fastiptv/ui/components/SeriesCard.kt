@@ -161,17 +161,17 @@ fun SeriesCard(
                     Text(
                         text = series.name,
                         color = Color.White,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = if (isFocused) FontWeight.ExtraBold else FontWeight.SemiBold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        lineHeight = 15.sp
+                        lineHeight = 17.sp
                     )
                     if (!series.genre.isNullOrBlank()) {
                         Text(
                             text = series.genre.split(",").firstOrNull()?.trim().orEmpty(),
                             color = TextMuted,
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 2.dp)

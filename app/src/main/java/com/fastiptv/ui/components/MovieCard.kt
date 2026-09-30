@@ -158,11 +158,11 @@ fun MovieCard(
                 Text(
                     text = movie.name,
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     fontWeight = if (isFocused) FontWeight.ExtraBold else FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    lineHeight = 15.sp
+                    lineHeight = 17.sp
                 )
             }
         }

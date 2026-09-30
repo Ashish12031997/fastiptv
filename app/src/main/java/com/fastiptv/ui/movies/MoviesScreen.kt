@@ -68,6 +68,7 @@ import com.fastiptv.ui.theme.DarkSurfaceElevated
 import com.fastiptv.ui.theme.GlassBorder
 import com.fastiptv.ui.theme.TextMuted
 import com.fastiptv.ui.theme.TextWhite
+import kotlinx.coroutines.delay
 
 @Composable
 fun MoviesScreen(
@@ -75,6 +76,7 @@ fun MoviesScreen(
     modifier: Modifier = Modifier,
     topNavFocusRequester: FocusRequester? = null,
     contentFocusRequester: FocusRequester? = null,
+    isTopNavFocused: Boolean = false,
     viewModel: MoviesViewModel = hiltViewModel()
 ) {
     val categories by viewModel.categories.collectAsState()
@@ -105,16 +107,26 @@ fun MoviesScreen(
         } catch (_: Exception) {}
     }
 
+    LaunchedEffect(categories) {
+        if (categories.isNotEmpty()) {
+            delay(150)
+            try {
+                sidebarFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
     // Remote Back button:
     // 1. If user is browsing in the movie grid, Back focuses the category sidebar first
-    // 2. If user is browsing in the sidebar, Back focuses the TopNavBar active tab (Movies)
+    // 2. If user is in the sidebar and topNav is not focused, Back focuses the TopNavBar active tab (Movies)
+    // 3. When TopNavBar is already focused, BackHandler does not intercept, letting the app exit cleanly.
     BackHandler(enabled = isGridFocused) {
         try {
             sidebarFocusRequester.requestFocus()
         } catch (_: Exception) {}
     }
 
-    BackHandler(enabled = isSidebarFocused && !isGridFocused) {
+    BackHandler(enabled = !isGridFocused && !isTopNavFocused) {
         try {
             topNavFocusRequester?.requestFocus()
         } catch (_: Exception) {}
@@ -349,6 +361,9 @@ fun MoviesScreen(
                                             .focusProperties {
                                                 left = sidebarFocusRequester
                                                 down = gridFocusRequester
+                                                if (topNavFocusRequester != null) {
+                                                    up = topNavFocusRequester
+                                                }
                                             }
                                     ) {
                                         Text(

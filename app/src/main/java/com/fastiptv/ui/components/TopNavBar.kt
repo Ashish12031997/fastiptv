@@ -2,6 +2,8 @@ package com.fastiptv.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -24,7 +26,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import android.view.KeyEvent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,20 +43,13 @@ import com.fastiptv.ui.theme.DarkSurfaceElevated
 import com.fastiptv.ui.theme.GlassBorder
 import com.fastiptv.ui.theme.TextMuted
 import com.fastiptv.ui.theme.TextWhite
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 data class NavItem(val screen: Screen, val label: String)
 
 val NavItems = listOf(
-    NavItem(Screen.Home, "Home"),
-    NavItem(Screen.Epg, "TV Guide"),
     NavItem(Screen.Movies, "Movies"),
-    NavItem(Screen.Series, "Series"),
-    NavItem(Screen.Favorites, "Favorites"),
-    NavItem(Screen.Search, "Search"),
-    NavItem(Screen.Settings, "Settings")
+    NavItem(Screen.LiveTv, "Live TV"),
+    NavItem(Screen.Series, "Series")
 )
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
@@ -65,12 +62,19 @@ fun TopNavBar(
     contentFocusRequester: FocusRequester? = null
 ) {
     val activeIndex = remember(currentRoute) {
-        NavItems.indexOfFirst { it.screen.route == currentRoute }.coerceAtLeast(0)
+        val idx = NavItems.indexOfFirst {
+            it.screen.route == currentRoute ||
+                    (it.screen == Screen.LiveTv && currentRoute?.startsWith("live_tv") == true)
+        }
+        if (idx >= 0) idx else 0
     }
     var selectedTabIndex by remember(currentRoute) { mutableIntStateOf(activeIndex) }
     var focusedTabIndex by remember { mutableIntStateOf(-1) }
-    val coroutineScope = rememberCoroutineScope()
-    var navDebounceJob by remember { mutableStateOf<Job?>(null) }
+    var isSettingsFocused by remember { mutableStateOf(false) }
+    val isSettingsSelected = currentRoute == Screen.Settings.route
+
+    val settingsFocusRequester = remember { FocusRequester() }
+    val seriesTabFocusRequester = remember { FocusRequester() }
 
     Box(
         modifier = modifier
@@ -81,10 +85,10 @@ fun TopNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(58.dp)
-                .clip(RoundedCornerShape(29.dp))
-                .background(DarkSurface.copy(alpha = 0.90f))
-                .border(1.dp, GlassBorder, RoundedCornerShape(29.dp))
+                .height(60.dp)
+                .clip(RoundedCornerShape(30.dp))
+                .background(DarkSurface.copy(alpha = 0.92f))
+                .border(1.dp, GlassBorder, RoundedCornerShape(30.dp))
                 .padding(horizontal = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -92,12 +96,12 @@ fun TopNavBar(
             // Brand Logo with glowing dot
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(5.dp))
                         .background(AccentBlue)
                 )
                 Text(
@@ -116,7 +120,7 @@ fun TopNavBar(
                 )
             }
 
-            // Navigation Tabs
+            // Exactly 3 Core Navigation Tabs
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 indicator = { tabPositions, doesTabRowHaveFocus ->
@@ -136,41 +140,23 @@ fun TopNavBar(
                             selectedTabIndex = activeIndex
                         }
                     }
-                    .focusProperties {
-                        if (topNavFocusRequester != null) {
-                            onEnter = { topNavFocusRequester }
-                        }
-                    }
             ) {
                 NavItems.forEachIndexed { index, navItem ->
-                    val isSelected = currentRoute == navItem.screen.route
+                    val isSelected = currentRoute == navItem.screen.route ||
+                            (navItem.screen == Screen.LiveTv && currentRoute?.startsWith("live_tv") == true)
                     val isTabFocused = focusedTabIndex == index
+                    val isLastTab = index == NavItems.lastIndex
 
                     Tab(
                         selected = isSelected,
                         onFocus = {
                             focusedTabIndex = index
                             selectedTabIndex = index
-
-                            if (currentRoute != navItem.screen.route) {
-                                val diff = kotlin.math.abs(index - activeIndex)
-                                if (diff <= 1) {
-                                    // Debounce screen transition so rapid D-pad traversal is 60fps smooth
-                                    navDebounceJob?.cancel()
-                                    navDebounceJob = coroutineScope.launch {
-                                        delay(350)
-                                        if (currentRoute != navItem.screen.route) {
-                                            onNavigate(navItem.screen)
-                                        }
-                                    }
-                                }
-                            }
                         },
                         onClick = {
                             focusedTabIndex = index
                             selectedTabIndex = index
-                            navDebounceJob?.cancel()
-                            if (currentRoute != navItem.screen.route) {
+                            if (!isSelected) {
                                 onNavigate(navItem.screen)
                             }
                         },
@@ -183,31 +169,96 @@ fun TopNavBar(
                         ),
                         modifier = Modifier
                             .then(if (isSelected && topNavFocusRequester != null) Modifier.focusRequester(topNavFocusRequester) else Modifier)
+                            .then(if (isLastTab) Modifier.focusRequester(seriesTabFocusRequester) else Modifier)
+                            .onKeyEvent { keyEvent ->
+                                if (keyEvent.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                                    if (keyEvent.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
+                                        if (!isSelected) {
+                                            onNavigate(navItem.screen)
+                                            true
+                                        } else false
+                                    } else false
+                                } else false
+                            }
+                            .focusProperties {
+                                if (contentFocusRequester != null) {
+                                    down = contentFocusRequester
+                                }
+                                if (isLastTab) {
+                                    right = settingsFocusRequester
+                                }
+                            }
                     ) {
-                        // High-contrast 10-foot TV tab label with instant focus feedback
+                        // High-contrast large 10-foot TV tab label for elderly users
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
+                                .clip(RoundedCornerShape(22.dp))
                                 .then(
                                     if (isTabFocused) {
                                         Modifier
                                             .background(Color(0xFF2563EB))
-                                            .border(2.dp, Color(0xFF60A5FA), RoundedCornerShape(20.dp))
+                                            .border(2.5.dp, Color(0xFF93C5FD), RoundedCornerShape(22.dp))
                                     } else if (isSelected) {
-                                        Modifier.background(DarkSurfaceElevated.copy(alpha = 0.6f))
+                                        Modifier.background(DarkSurfaceElevated.copy(alpha = 0.7f))
                                     } else Modifier
                                 )
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                                .padding(horizontal = 20.dp, vertical = 8.dp)
                         ) {
                             Text(
                                 text = navItem.label,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = if (isTabFocused || isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
                                 color = if (isTabFocused) Color.White else if (isSelected) Color(0xFF93C5FD) else TextMuted,
-                                fontSize = 15.sp
+                                fontSize = 17.sp
                             )
                         }
                     }
+                }
+            }
+
+            // Discrete Settings Icon Button on Far Right
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .then(
+                        if (isSettingsFocused) {
+                            Modifier
+                                .background(Color(0xFF2563EB))
+                                .border(2.5.dp, Color(0xFF93C5FD), RoundedCornerShape(20.dp))
+                        } else if (isSettingsSelected) {
+                            Modifier
+                                .background(DarkSurfaceElevated)
+                                .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
+                        } else Modifier
+                    )
+                    .focusRequester(settingsFocusRequester)
+                    .focusProperties {
+                        left = seriesTabFocusRequester
+                        if (contentFocusRequester != null) {
+                            down = contentFocusRequester
+                        }
+                    }
+                    .focusable()
+                    .clickable { onNavigate(Screen.Settings) }
+                    .onFocusChanged { isSettingsFocused = it.isFocused }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = "⚙",
+                        fontSize = 17.sp,
+                        color = if (isSettingsFocused) Color.White else if (isSettingsSelected) Color(0xFF93C5FD) else TextMuted
+                    )
+                    Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = if (isSettingsFocused || isSettingsSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSettingsFocused) Color.White else if (isSettingsSelected) Color(0xFF93C5FD) else TextMuted,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }

@@ -1,0 +1,1364 @@
+{
+  "info": {
+    "_postman_id": "65d4c304-2fa4-4af2-b39d-abecf8bb0bc5",
+    "name": "FastIPTV - Xtream Codes & App APIs",
+    "description": "Complete Postman collection for FastIPTV, covering the Xtream Codes API (Authentication, Live TV, VOD Movies, TV Series, EPG Guide, and Direct Stream Playback URLs) plus FastIPTV OTA Updates API.\n\n### Quick Start:\n1. Select the **FastIPTV Environment** or update the Collection Variables (`base_url`, `username`, `password`).\n2. Run **01. Authentication & System -> Authenticate & Server Info** to verify your account status and credentials.\n3. The test scripts will automatically save dynamic IDs (`live_category_id`, `live_stream_id`, `vod_category_id`, `vod_stream_id`, `series_id`, `episode_id`) into collection variables for subsequent requests.\n\n### User-Agent Note:\nAll requests include `User-Agent: IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2` which prevents IPTV providers from blocking requests with HTTP 403 Forbidden.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Authentication & System",
+      "item": [
+        {
+          "name": "Authenticate & Server Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}",
+                  "description": "Account username"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "description": "Account password"
+                }
+              ]
+            },
+            "description": "Authenticates account and returns account status (Active/Expired), expiry date, max concurrent connections, allowed formats, server timezone, and port configuration."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Contains user_info and server_info\", function () {",
+                  "    pm.expect(data).to.have.property(\"user_info\");",
+                  "    pm.expect(data).to.have.property(\"server_info\");",
+                  "});",
+                  "",
+                  "if (data.user_info) {",
+                  "    pm.test(\"Account auth is valid (1)\", function () {",
+                  "        pm.expect(data.user_info.auth).to.eql(1);",
+                  "    });",
+                  "    console.log(\"[Auth] Status: \" + data.user_info.status + \", Exp Date: \" + data.user_info.exp_date + \", Max Cons: \" + data.user_info.max_connections);",
+                  "}",
+                  "if (data.server_info) {",
+                  "    console.log(\"[Server] Protocol: \" + data.server_info.server_protocol + \", Timezone: \" + data.server_info.timezone);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - Successful Handshake",
+              "originalRequest": {
+                "method": "GET",
+                "url": "{{base_url}}/player_api.php?username={{username}}&password={{password}}"
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"user_info\": {\n    \"username\": \"user123\",\n    \"password\": \"secret\",\n    \"auth\": 1,\n    \"status\": \"Active\",\n    \"exp_date\": \"1775689600\",\n    \"is_trial\": \"0\",\n    \"active_cons\": 0,\n    \"max_connections\": \"2\",\n    \"allowed_output_formats\": [\n      \"m3u8\",\n      \"ts\",\n      \"rtmp\"\n    ]\n  },\n  \"server_info\": {\n    \"url\": \"your-provider.com\",\n    \"port\": \"8080\",\n    \"https_port\": \"8443\",\n    \"server_protocol\": \"http\",\n    \"timezone\": \"Europe/London\",\n    \"timestamp_now\": 1789441920\n  }\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Endpoints to authenticate and verify IPTV provider credentials, server capabilities, and timezone."
+    },
+    {
+      "name": "02. Live TV",
+      "item": [
+        {
+          "name": "Get Live Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_live_categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_live_categories"
+                }
+              ]
+            },
+            "description": "Fetches all live TV categories/groups (e.g., News, Sports, Entertainment, Movies)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Returns array of categories\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "});",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set(\"live_category_id\", data[0].category_id);",
+                  "    console.log(\"[Live Category] Auto-set live_category_id: \" + data[0].category_id + \" (\" + data[0].category_name + \")\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - Live Categories List",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"category_id\": \"1\",\n    \"category_name\": \"USA | GENERAL\",\n    \"parent_id\": 0\n  },\n  {\n    \"category_id\": \"2\",\n    \"category_name\": \"USA | SPORTS HD\",\n    \"parent_id\": 0\n  },\n  {\n    \"category_id\": \"3\",\n    \"category_name\": \"USA | NEWS\",\n    \"parent_id\": 0\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get All Live Streams",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_live_streams",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_live_streams"
+                }
+              ]
+            },
+            "description": "Fetches all live TV channels across all categories. Note: With large providers, this payload can be 10MB - 30MB+."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Returns array of live streams\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "});",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set(\"live_stream_id\", data[0].stream_id);",
+                  "    console.log(\"[Live Stream] Auto-set live_stream_id: \" + data[0].stream_id + \" (\" + data[0].name + \")\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - Live Streams List",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"num\": 1,\n    \"name\": \"USA: CNN HD\",\n    \"stream_type\": \"live\",\n    \"stream_id\": 10542,\n    \"stream_icon\": \"http://host/images/logos/cnn.png\",\n    \"epg_channel_id\": \"cnn.us\",\n    \"added\": \"1610000000\",\n    \"category_id\": \"1\",\n    \"tv_archive\": 1,\n    \"tv_archive_duration\": 3\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get Live Streams by Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_live_streams&category_id={{live_category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_live_streams"
+                },
+                {
+                  "key": "category_id",
+                  "value": "{{live_category_id}}",
+                  "description": "Category ID to filter channels"
+                }
+              ]
+            },
+            "description": "Fetches live channels filtered by a specific category ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Returns array\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "});",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set(\"live_stream_id\", data[0].stream_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "description": "Endpoints to fetch live categories, channels list, and filtered streams."
+    },
+    {
+      "name": "03. VOD (Movies)",
+      "item": [
+        {
+          "name": "Get VOD Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_vod_categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_vod_categories"
+                }
+              ]
+            },
+            "description": "Fetches all movie/VOD categories (e.g. Action, Comedy, Sci-Fi, 4K UHD)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Returns array of VOD categories\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "});",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set(\"vod_category_id\", data[0].category_id);",
+                  "    console.log(\"[VOD Category] Auto-set vod_category_id: \" + data[0].category_id + \" (\" + data[0].category_name + \")\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - VOD Categories List",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"category_id\": \"5\",\n    \"category_name\": \"MOVIES | ACTION\",\n    \"parent_id\": 0\n  },\n  {\n    \"category_id\": \"6\",\n    \"category_name\": \"MOVIES | SCI-FI\",\n    \"parent_id\": 0\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get All VOD Streams",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_vod_streams",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_vod_streams"
+                }
+              ]
+            },
+            "description": "Fetches all on-demand movies, including rating, poster image, and container extension (mp4, mkv)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Returns array of VOD streams\", function () {",
+                  "    pm.expect(Array.isArray(data)).to.be.true;",
+                  "});",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set(\"vod_stream_id\", data[0].stream_id);",
+                  "    if (data[0].container_extension) {",
+                  "        pm.collectionVariables.set(\"vod_extension\", data[0].container_extension);",
+                  "    }",
+                  "    console.log(\"[VOD Stream] Auto-set vod_stream_id: \" + data[0].stream_id + \" (\" + data[0].name + \")\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - VOD Streams List",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"num\": 1,\n    \"name\": \"Inception (2010)\",\n    \"stream_type\": \"movie\",\n    \"stream_id\": 45892,\n    \"stream_icon\": \"http://host/images/posters/inception.jpg\",\n    \"rating\": \"8.8\",\n    \"rating_5based\": 4.4,\n    \"added\": \"1612000000\",\n    \"category_id\": \"5\",\n    \"container_extension\": \"mkv\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get VOD Streams by Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_vod_streams&category_id={{vod_category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_vod_streams"
+                },
+                {
+                  "key": "category_id",
+                  "value": "{{vod_category_id}}"
+                }
+              ]
+            },
+            "description": "Fetches VOD movies belonging to the given category ID."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set(\"vod_stream_id\", data[0].stream_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get VOD Info (Full Metadata)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_vod_info&vod_id={{vod_stream_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_vod_info"
+                },
+                {
+                  "key": "vod_id",
+                  "value": "{{vod_stream_id}}",
+                  "description": "Stream ID of the VOD title"
+                }
+              ]
+            },
+            "description": "Returns full metadata for a movie including plot, cast, director, TMDB ID, backdrop, trailer, runtime, video codecs, and audio channels."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Has info or movie_data\", function () {",
+                  "    pm.expect(data.info || data.movie_data).to.not.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - Movie Full Metadata",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"info\": {\n    \"tmdb_id\": \"27205\",\n    \"name\": \"Inception\",\n    \"cover_big\": \"http://host/images/poster_large.jpg\",\n    \"releasedate\": \"2010-07-16\",\n    \"episode_run_time\": \"148\",\n    \"youtube_trailer\": \"YoHD9XEInc0\",\n    \"director\": \"Christopher Nolan\",\n    \"actors\": \"Leonardo DiCaprio, Joseph Gordon-Levitt\",\n    \"description\": \"A thief who steals corporate secrets through the use of dream-sharing technology...\",\n    \"genre\": \"Action, Science Fiction\",\n    \"duration\": \"02:28:00\",\n    \"rating\": \"8.8\",\n    \"video\": {\n      \"codec_name\": \"h264\",\n      \"width\": 1920,\n      \"height\": 1080\n    },\n    \"audio\": {\n      \"codec_name\": \"aac\",\n      \"channels\": 6,\n      \"channel_layout\": \"5.1\"\n    }\n  },\n  \"movie_data\": {\n    \"stream_id\": 45892,\n    \"name\": \"Inception\",\n    \"container_extension\": \"mkv\"\n  }\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Endpoints for on-demand movies, categories, and detailed movie metadata (cast, director, rating, TMDB)."
+    },
+    {
+      "name": "04. TV Series",
+      "item": [
+        {
+          "name": "Get Series Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_series_categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_series_categories"
+                }
+              ]
+            },
+            "description": "Fetches all TV series categories/genres."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set(\"series_category_id\", data[0].category_id);",
+                  "    console.log(\"[Series Category] Auto-set series_category_id: \" + data[0].category_id + \" (\" + data[0].category_name + \")\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - Series Categories List",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"category_id\": \"3\",\n    \"category_name\": \"SERIES | DRAMA\",\n    \"parent_id\": 0\n  },\n  {\n    \"category_id\": \"4\",\n    \"category_name\": \"SERIES | COMEDY\",\n    \"parent_id\": 0\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get All Series",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_series",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_series"
+                }
+              ]
+            },
+            "description": "Fetches all TV series shows across all categories."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "if (Array.isArray(data) && data.length > 0) {",
+                  "    pm.collectionVariables.set(\"series_id\", data[0].series_id);",
+                  "    console.log(\"[Series] Auto-set series_id: \" + data[0].series_id + \" (\" + data[0].name + \")\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - Series List",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "[\n  {\n    \"name\": \"Breaking Bad\",\n    \"series_id\": 312,\n    \"cover\": \"http://host/images/covers/bb.jpg\",\n    \"plot\": \"A high school chemistry teacher diagnosed with inoperable lung cancer...\",\n    \"cast\": \"Bryan Cranston, Aaron Paul\",\n    \"genre\": \"Crime, Drama, Thriller\",\n    \"rating\": \"9.5\",\n    \"rating_5based\": 4.8,\n    \"category_id\": \"3\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get Series by Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_series&category_id={{series_category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_series"
+                },
+                {
+                  "key": "category_id",
+                  "value": "{{series_category_id}}"
+                }
+              ]
+            },
+            "description": "Fetches TV series shows in a specific category."
+          },
+          "event": [],
+          "response": []
+        },
+        {
+          "name": "Get Series Info & Episodes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_series_info&series_id={{series_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_series_info"
+                },
+                {
+                  "key": "series_id",
+                  "value": "{{series_id}}",
+                  "description": "Series ID to fetch seasons and episodes"
+                }
+              ]
+            },
+            "description": "Returns full details for a TV series, including list of seasons and map of episodes grouped by season number."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Has seasons and episodes\", function () {",
+                  "    pm.expect(data).to.have.property(\"seasons\");",
+                  "    pm.expect(data).to.have.property(\"episodes\");",
+                  "});",
+                  "if (data.episodes) {",
+                  "    var seasonKeys = Object.keys(data.episodes);",
+                  "    if (seasonKeys.length > 0 && data.episodes[seasonKeys[0]].length > 0) {",
+                  "        var ep = data.episodes[seasonKeys[0]][0];",
+                  "        pm.collectionVariables.set(\"episode_id\", ep.id);",
+                  "        if (ep.container_extension) {",
+                  "            pm.collectionVariables.set(\"series_extension\", ep.container_extension);",
+                  "        }",
+                  "        console.log(\"[Episode] Auto-set episode_id: \" + ep.id + \" (\" + ep.title + \")\");",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - Series Info & Seasons",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"seasons\": [\n    {\n      \"season_number\": 1,\n      \"name\": \"Season 1\",\n      \"episode_count\": 7,\n      \"cover\": \"http://host/s1.jpg\"\n    }\n  ],\n  \"info\": {\n    \"name\": \"Breaking Bad\",\n    \"cover\": \"http://host/bb.jpg\",\n    \"rating\": \"9.5\"\n  },\n  \"episodes\": {\n    \"1\": [\n      {\n        \"id\": \"7801\",\n        \"episode_num\": 1,\n        \"title\": \"Pilot\",\n        \"container_extension\": \"mkv\",\n        \"season\": 1,\n        \"info\": {\n          \"duration\": \"00:58:00\",\n          \"video\": {\n            \"width\": 1920,\n            \"height\": 1080,\n            \"codec_name\": \"h264\"\n          }\n        }\n      }\n    ]\n  }\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Endpoints for TV series catalog, seasons breakdown, and individual episode listings."
+    },
+    {
+      "name": "05. EPG Guide",
+      "item": [
+        {
+          "name": "Get Short EPG for Channel",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_short_epg&stream_id={{live_stream_id}}&limit=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_short_epg"
+                },
+                {
+                  "key": "stream_id",
+                  "value": "{{live_stream_id}}",
+                  "description": "Channel stream ID"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of EPG entries"
+                }
+              ]
+            },
+            "description": "Returns current and upcoming program schedule for a specific live channel. Notice: title and description may be Base64 encoded by some panels."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Contains epg_listings\", function () {",
+                  "    pm.expect(data).to.have.property(\"epg_listings\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 - Short EPG Listings",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"epg_listings\": [\n    {\n      \"id\": \"1\",\n      \"title\": \"CNN Newsroom\",\n      \"start\": \"2026-09-29 23:00:00\",\n      \"end\": \"2026-09-30 00:00:00\",\n      \"description\": \"Live reporting and news analysis with global anchors.\",\n      \"now_playing\": 1,\n      \"has_archive\": 1\n    },\n    {\n      \"id\": \"2\",\n      \"title\": \"The Situation Room\",\n      \"start\": \"2026-09-30 00:00:00\",\n      \"end\": \"2026-09-30 01:00:00\",\n      \"description\": \"Current events and political analysis.\",\n      \"now_playing\": 0,\n      \"has_archive\": 0\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Simple Data Table EPG",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/player_api.php?username={{username}}&password={{password}}&action=get_simple_data_table&stream_id={{live_stream_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "player_api.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "action",
+                  "value": "get_simple_data_table"
+                },
+                {
+                  "key": "stream_id",
+                  "value": "{{live_stream_id}}"
+                }
+              ]
+            },
+            "description": "Alternative raw table format for channel guide supported by Xtream Codes panels."
+          },
+          "event": [],
+          "response": []
+        },
+        {
+          "name": "Download Full XMLTV EPG",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              },
+              {
+                "key": "Accept-Encoding",
+                "value": "gzip",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/xmltv.php?username={{username}}&password={{password}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "xmltv.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                }
+              ]
+            },
+            "description": "Downloads full XMLTV XML file containing all channels and program schedules. WARNING: Can be very large (10-50MB). Use Accept-Encoding: gzip."
+          },
+          "event": [],
+          "response": []
+        }
+      ],
+      "description": "Endpoints for TV program guides (short per-channel EPG, table data, and full XMLTV download)."
+    },
+    {
+      "name": "06. Stream Playback & Media URLs",
+      "item": [
+        {
+          "name": "Stream Live Channel (HLS .m3u8)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/live/{{username}}/{{password}}/{{live_stream_id}}.m3u8",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "live",
+                "{{username}}",
+                "{{password}}",
+                "{{live_stream_id}}.m3u8"
+              ]
+            },
+            "description": "Plays live TV channel using HLS manifest. FastIPTV player uses this URL for live streaming."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 or 302 Redirect\", function () {",
+                  "    pm.expect([200, 302]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Stream Live Channel (MPEG-TS .ts)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/live/{{username}}/{{password}}/{{live_stream_id}}.ts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "live",
+                "{{username}}",
+                "{{password}}",
+                "{{live_stream_id}}.ts"
+              ]
+            },
+            "description": "Direct MPEG-TS transport stream for live TV channels."
+          },
+          "event": [],
+          "response": []
+        },
+        {
+          "name": "Stream VOD Movie",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/movie/{{username}}/{{password}}/{{vod_stream_id}}.{{vod_extension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "movie",
+                "{{username}}",
+                "{{password}}",
+                "{{vod_stream_id}}.{{vod_extension}}"
+              ]
+            },
+            "description": "Plays on-demand movie stream directly in player."
+          },
+          "event": [],
+          "response": []
+        },
+        {
+          "name": "Stream Series Episode",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/series/{{username}}/{{password}}/{{episode_id}}.{{series_extension}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "series",
+                "{{username}}",
+                "{{password}}",
+                "{{episode_id}}.{{series_extension}}"
+              ]
+            },
+            "description": "Plays TV series episode stream directly in player."
+          },
+          "event": [],
+          "response": []
+        },
+        {
+          "name": "Export M3U Plus Playlist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "IPTVSmartersPro/1.0.0 (Linux;Android 11) ExoPlayerLib/2.18.2",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/get.php?username={{username}}&password={{password}}&type=m3u_plus&output=ts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "get.php"
+              ],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "{{username}}"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}"
+                },
+                {
+                  "key": "type",
+                  "value": "m3u_plus"
+                },
+                {
+                  "key": "output",
+                  "value": "ts",
+                  "description": "Format: ts or m3u8"
+                }
+              ]
+            },
+            "description": "Downloads full M3U Plus playlist containing all channel names, group titles, logo URLs, and stream links."
+          },
+          "event": [],
+          "response": []
+        }
+      ],
+      "description": "Direct HLS, MPEG-TS, and MP4 media stream URLs accessed by the player during video playback."
+    },
+    {
+      "name": "07. App Maintenance & Updates",
+      "item": [
+        {
+          "name": "Check Latest FastIPTV Release (GitHub OTA)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/vnd.github.v3+json",
+                "type": "text"
+              },
+              {
+                "key": "User-Agent",
+                "value": "FastIPTV-App",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://api.github.com/repos/Ashish12031997/fastiptv/releases/latest",
+              "protocol": "https",
+              "host": [
+                "api",
+                "github",
+                "com"
+              ],
+              "path": [
+                "repos",
+                "Ashish12031997",
+                "fastiptv",
+                "releases",
+                "latest"
+              ]
+            },
+            "description": "Queries GitHub Releases API for FastIPTV to check the latest published version tag, release notes, and APK download URLs used by OtaUpdateManager."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Has tag_name and assets\", function () {",
+                  "    pm.expect(data).to.have.property(\"tag_name\");",
+                  "    pm.expect(data).to.have.property(\"assets\");",
+                  "});",
+                  "console.log(\"[FastIPTV Latest Release] \" + data.tag_name + \" (Published: \" + data.published_at + \")\");"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "description": "FastIPTV application maintenance APIs including GitHub OTA release checks."
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://your-iptv-host.com:8080",
+      "type": "string",
+      "description": "IPTV Server base URL including protocol and port (no trailing slash)"
+    },
+    {
+      "key": "username",
+      "value": "demo_user",
+      "type": "string",
+      "description": "IPTV username"
+    },
+    {
+      "key": "password",
+      "value": "demo_pass",
+      "type": "string",
+      "description": "IPTV password"
+    },
+    {
+      "key": "live_category_id",
+      "value": "1",
+      "type": "string",
+      "description": "Dynamic ID of a Live TV category"
+    },
+    {
+      "key": "live_stream_id",
+      "value": "1001",
+      "type": "string",
+      "description": "Dynamic ID of a Live TV channel"
+    },
+    {
+      "key": "vod_category_id",
+      "value": "1",
+      "type": "string",
+      "description": "Dynamic ID of a VOD movie category"
+    },
+    {
+      "key": "vod_stream_id",
+      "value": "2001",
+      "type": "string",
+      "description": "Dynamic ID of a VOD movie"
+    },
+    {
+      "key": "vod_extension",
+      "value": "mp4",
+      "type": "string",
+      "description": "File extension for VOD movie (mp4, mkv)"
+    },
+    {
+      "key": "series_category_id",
+      "value": "1",
+      "type": "string",
+      "description": "Dynamic ID of a TV Series category"
+    },
+    {
+      "key": "series_id",
+      "value": "3001",
+      "type": "string",
+      "description": "Dynamic ID of a TV Series"
+    },
+    {
+      "key": "episode_id",
+      "value": "4001",
+      "type": "string",
+      "description": "Dynamic ID of a TV Series episode"
+    },
+    {
+      "key": "series_extension",
+      "value": "mp4",
+      "type": "string",
+      "description": "File extension for TV Series episode (mp4, mkv)"
+    }
+  ]
+}
