@@ -1,10 +1,6 @@
 package com.fastiptv.ui.movies
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,20 +39,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.tv.material3.Border
-import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil3.compose.AsyncImage
 import com.fastiptv.domain.model.Movie
 import com.fastiptv.ui.components.CatalogCategorySidebar
 import com.fastiptv.ui.components.CategoryGroupHelper
@@ -90,7 +80,6 @@ fun MoviesScreen(
 
     val sidebarFocusRequester = contentFocusRequester ?: remember { FocusRequester() }
     val gridFocusRequester = remember { FocusRequester() }
-    val spotlightWatchFocusRequester = remember { FocusRequester() }
     var activeGridItemIndex by remember { mutableIntStateOf(0) }
     val gridState = rememberLazyGridState()
 
@@ -231,154 +220,7 @@ fun MoviesScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Dynamic Spotlight Preview Header
-                    AnimatedVisibility(
-                        visible = focusedMovie != null,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        focusedMovie?.let { movie ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(86.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            listOf(
-                                                Color(0xFF141926),
-                                                Color(0xFF0F1420)
-                                            )
-                                        )
-                                    )
-                                    .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
-                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                                ) {
-                                    // Movie mini poster
-                                    if (!movie.posterUrl.isNullOrBlank()) {
-                                        AsyncImage(
-                                            model = movie.posterUrl,
-                                            contentDescription = movie.name,
-                                            modifier = Modifier
-                                                .width(46.dp)
-                                                .height(66.dp)
-                                                .clip(RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .width(46.dp)
-                                                .height(66.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(DarkSurfaceElevated),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = movie.name.take(2).uppercase(),
-                                                color = AccentBlue,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                    }
-
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(
-                                            text = movie.name,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextWhite,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-
-                                        Row(
-                                            modifier = Modifier.padding(top = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            val rating = movie.rating?.takeIf { it != "0" && it.isNotBlank() }
-                                            if (rating != null) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(4.dp))
-                                                        .background(Color(0xFFE5A00D).copy(alpha = 0.2f))
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "★ $rating",
-                                                        color = Color(0xFFFFC107),
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                }
-                                            }
-
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(DarkSurfaceElevated)
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(
-                                                    text = movie.containerExt.uppercase(),
-                                                    color = TextMuted,
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                            }
-
-                                            Text(
-                                                text = "HD 1080p • Ready to stream",
-                                                color = TextMuted,
-                                                fontSize = 11.sp
-                                            )
-                                        }
-                                                                        Button(
-                                        onClick = { onMovieClick(movie) },
-                                        colors = ButtonDefaults.colors(
-                                            containerColor = AccentBlue,
-                                            focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
-                                        ),
-                                        border = ButtonDefaults.border(
-                                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
-                                        ),
-                                        shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                        modifier = Modifier
-                                            .focusRequester(spotlightWatchFocusRequester)
-                                            .focusProperties {
-                                                left = sidebarFocusRequester
-                                                down = gridFocusRequester
-                                                if (topNavFocusRequester != null) {
-                                                    up = topNavFocusRequester
-                                                }
-                                            }
-                                    ) {
-                                        Text(
-                                            text = "▶ Watch",
-                                            color = TextWhite,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Movie Grid
                     if (movies.isEmpty()) {
@@ -436,8 +278,8 @@ fun MoviesScreen(
                                             if (isLeftEdge) {
                                                 left = sidebarFocusRequester
                                             }
-                                            if (index < columnCount && focusedMovie != null) {
-                                                up = spotlightWatchFocusRequester
+                                            if (index < columnCount && topNavFocusRequester != null) {
+                                                up = topNavFocusRequester
                                             }
                                         }
                                         .onFocusChanged { state ->
@@ -456,7 +298,7 @@ fun MoviesScreen(
                                 }
                             }
                         }
-                    }     }
+                    }
                 }
             }
         }

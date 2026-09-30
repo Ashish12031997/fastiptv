@@ -1,9 +1,7 @@
 package com.fastiptv.ui.series
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -99,7 +97,6 @@ fun SeriesScreen(
     val closeButtonFocusRequester = remember { FocusRequester() }
     val sidebarFocusRequester = contentFocusRequester ?: remember { FocusRequester() }
     val gridFocusRequester = remember { FocusRequester() }
-    val spotlightWatchFocusRequester = remember { FocusRequester() }
     var activeGridItemIndex by remember { mutableIntStateOf(0) }
     val gridState = rememberLazyGridState()
 
@@ -248,156 +245,7 @@ fun SeriesScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Dynamic Spotlight Preview Header
-                    AnimatedVisibility(
-                        visible = focusedSeries != null,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        focusedSeries?.let { series ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(86.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            listOf(
-                                                Color(0xFF141926),
-                                                Color(0xFF0F1420)
-                                            )
-                                        )
-                                    )
-                                    .border(1.dp, GlassBorder, RoundedCornerShape(14.dp))
-                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                                ) {
-                                    // Series mini cover
-                                    if (!series.coverUrl.isNullOrBlank()) {
-                                        AsyncImage(
-                                            model = series.coverUrl,
-                                            contentDescription = series.name,
-                                            modifier = Modifier
-                                                .width(46.dp)
-                                                .height(66.dp)
-                                                .clip(RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .width(46.dp)
-                                                .height(66.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(DarkSurfaceElevated),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = series.name.take(2).uppercase(),
-                                                color = AccentBlue,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                    }
-
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(
-                                            text = series.name,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = TextWhite,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-
-                                        Row(
-                                            modifier = Modifier.padding(top = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            val rating = series.rating?.takeIf { it != "0" && it.isNotBlank() }
-                                            if (rating != null) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(4.dp))
-                                                        .background(Color(0xFFE5A00D).copy(alpha = 0.2f))
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text(
-                                                        text = "★ $rating",
-                                                        color = Color(0xFFFFC107),
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                }
-                                            }
-
-                                            if (!series.genre.isNullOrBlank()) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(4.dp))
-                                                        .background(DarkSurfaceElevated)
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text(
-                                                        text = series.genre,
-                                                        color = TextMuted,
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.SemiBold
-                                                    )
-                                                }
-                                            }
-
-                                            Text(
-                                                text = "Series • Seasons & Episodes available",
-                                                color = TextMuted,
-                                                fontSize = 11.sp
-                                            )
-                                        }
-                                                                        Button(
-                                        onClick = { viewModel.openSeriesDetail(series) },
-                                        colors = ButtonDefaults.colors(
-                                            containerColor = AccentBlue,
-                                            focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
-                                        ),
-                                        border = ButtonDefaults.border(
-                                            focusedBorder = Border(border = BorderStroke(2.5.dp, Color(0xFF38BDF8)))
-                                        ),
-                                        shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                                        modifier = Modifier
-                                            .focusRequester(spotlightWatchFocusRequester)
-                                            .focusProperties {
-                                                left = sidebarFocusRequester
-                                                down = gridFocusRequester
-                                                if (topNavFocusRequester != null) {
-                                                    up = topNavFocusRequester
-                                                }
-                                            }
-                                    ) {
-                                        Text(
-                                            text = "View Episodes",
-                                            color = TextWhite,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Series Grid
                     if (seriesList.isEmpty()) {
@@ -455,8 +303,8 @@ fun SeriesScreen(
                                             if (isLeftEdge) {
                                                 left = sidebarFocusRequester
                                             }
-                                            if (index < columnCount && focusedSeries != null) {
-                                                up = spotlightWatchFocusRequester
+                                            if (index < columnCount && topNavFocusRequester != null) {
+                                                up = topNavFocusRequester
                                             }
                                         }
                                         .onFocusChanged { state ->
@@ -475,7 +323,7 @@ fun SeriesScreen(
                                 }
                             }
                         }
-                    }   }
+                    }
                 }
             }
         }
