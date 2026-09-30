@@ -10,6 +10,7 @@ interface StreamPlayerController {
     val isPlaying: Boolean
     val isSeekable: Boolean
     val isFirstFrameRendered: StateFlow<Boolean>
+    val bufferedPosition: Long get() = 0L
 
     fun getPlayer(): Player
     fun playLiveStream(streamId: Int, format: String = "m3u8", title: String? = null)

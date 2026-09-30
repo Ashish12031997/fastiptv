@@ -64,6 +64,12 @@ class PlayerViewModel @Inject constructor(
     private val _isFavorite = MutableStateFlow(false)
     val isFavorite: StateFlow<Boolean> = _isFavorite.asStateFlow()
 
+    private val _playbackSpeed = MutableStateFlow(1.0f)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
+    private val _bufferedPositionMs = MutableStateFlow(0L)
+    val bufferedPositionMs: StateFlow<Long> = _bufferedPositionMs.asStateFlow()
+
     // Stream Diagnostics ("Nerd Stats")
     private val _isDiagnosticsVisible = MutableStateFlow(false)
     val isDiagnosticsVisible: StateFlow<Boolean> = _isDiagnosticsVisible.asStateFlow()
@@ -373,6 +379,7 @@ class PlayerViewModel @Inject constructor(
                 }
                 _durationMs.value = dur
                 _isPlaying.value = streamPlayer.isPlaying
+                _bufferedPositionMs.value = streamPlayer.bufferedPosition.coerceAtLeast(0L)
 
                 if (pos > 0L && dur > 0L && currentStreamId != 0) {
                     repository.updatePlaybackPosition(currentStreamId, pos, dur)
@@ -777,6 +784,32 @@ class PlayerViewModel @Inject constructor(
         _aspectRatioMode.value = mode
     }
 
+    fun cycleAspectRatio() {
+        val modes = AspectRatioMode.entries
+        val currentIndex = modes.indexOf(_aspectRatioMode.value)
+        val nextIndex = if (currentIndex != -1 && currentIndex + 1 < modes.size) currentIndex + 1 else 0
+        val nextMode = modes[nextIndex]
+        setAspectRatioMode(nextMode)
+        showSwitchNotice("Aspect Ratio: ${nextMode.title}")
+        showOverlay(4000L)
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        _playbackSpeed.value = speed
+        try {
+            streamPlayer.getPlayer().playbackParameters = androidx.media3.common.PlaybackParameters(speed)
+        } catch (_: Exception) {}
+        showSwitchNotice("Speed: ${speed}x")
+        showOverlay(4000L)
+    }
+
+    fun cyclePlaybackSpeed() {
+        val speeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+        val currentIndex = speeds.indexOfFirst { kotlin.math.abs(it - _playbackSpeed.value) < 0.05f }
+        val nextIndex = if (currentIndex != -1 && currentIndex + 1 < speeds.size) currentIndex + 1 else 0
+        setPlaybackSpeed(speeds[nextIndex])
+    }
+
     fun selectAudioTrack(option: PlayerTrackOption) {
         val player = streamPlayer.getPlayer()
         val trackGroup = player.currentTracks.groups.getOrNull(option.groupIndex)?.mediaTrackGroup ?: return
@@ -972,5 +1005,20 @@ class PlayerViewModel @Inject constructor(
                 String.format("%02d:%02d", minutes, seconds)
             }
         }
+
+        fun formatClockTime(timestampMs: Long = System.currentTimeMillis()): String {
+            val date = java.util.Date(timestampMs)
+            val format = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+            return format.format(date)
+        }
+
+        fun formatEndTime(currentPosMs: Long, durationMs: Long): String? {
+            if (durationMs <= 0L || currentPosMs >= durationMs) return null
+            val remainingMs = durationMs - currentPosMs
+            val targetTime = System.currentTimeMillis() + remainingMs
+            val format = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+            return "Ends at " + format.format(java.util.Date(targetTime))
+        }
     }
 }
+

@@ -105,6 +105,9 @@ class StreamPlayer @Inject constructor(
     override val isSeekable: Boolean
         get() = try { exoPlayer.isCurrentMediaItemSeekable } catch (e: Exception) { false }
 
+    override val bufferedPosition: Long
+        get() = try { exoPlayer.bufferedPosition } catch (e: Exception) { 0L }
+
     override fun seekTo(positionMs: Long) {
         exoPlayer.seekTo(positionMs)
     }

@@ -97,17 +97,31 @@ fun PlayerScreen(
     val aspectRatioMode by viewModel.aspectRatioMode.collectAsState()
     val audioTracks by viewModel.audioTracks.collectAsState()
     val subtitleTracks by viewModel.subtitleTracks.collectAsState()
+    val playbackSpeed by viewModel.playbackSpeed.collectAsState()
+    val bufferedPositionMs by viewModel.bufferedPositionMs.collectAsState()
 
     val nextEpisode by viewModel.nextEpisode.collectAsState()
     val isBingeBarVisible by viewModel.isBingeBarVisible.collectAsState()
     val bingeCountdownSeconds by viewModel.bingeCountdownSeconds.collectAsState()
     val resumePrompt by viewModel.resumePrompt.collectAsState()
 
-    val focusRequester = remember { FocusRequester() }
+    val rootFocusRequester = remember { FocusRequester() }
+    val headerBackFocusRequester = remember { FocusRequester() }
+    val headerFavoriteFocusRequester = remember { FocusRequester() }
+    val seekBarFocusRequester = remember { FocusRequester() }
+    val heroPlayPauseFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(streamId, streamType, containerExt, seriesId) {
         viewModel.initStream(streamId, streamTitle, streamType, containerExt, seriesId)
-        focusRequester.requestFocus()
+        rootFocusRequester.requestFocus()
+    }
+
+    LaunchedEffect(isOverlayVisible) {
+        if (isOverlayVisible) {
+            heroPlayPauseFocusRequester.requestFocus()
+        } else {
+            rootFocusRequester.requestFocus()
+        }
     }
 
     DisposableEffect(Unit) {
@@ -139,49 +153,81 @@ fun PlayerScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
-            .focusRequester(focusRequester)
+            .focusRequester(rootFocusRequester)
             .focusable()
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                    if (isOverlayVisible) {
+                        viewModel.showOverlay(4000L)
+                    }
+
                     when (keyEvent.nativeKeyEvent.keyCode) {
                         KeyEvent.KEYCODE_CHANNEL_UP,
                         KeyEvent.KEYCODE_DPAD_UP -> {
-                            if (!isQuickSettingsVisible && !isDiagnosticsVisible && streamType == "live") {
-                                viewModel.previousChannel()
-                                true
+                            if (!isQuickSettingsVisible && !isDiagnosticsVisible) {
+                                if (!isOverlayVisible) {
+                                    if (streamType == "live") {
+                                        viewModel.previousChannel()
+                                        true
+                                    } else {
+                                        viewModel.showOverlay(4000L)
+                                        true
+                                    }
+                                } else false
                             } else false
                         }
                         KeyEvent.KEYCODE_CHANNEL_DOWN,
                         KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            if (!isQuickSettingsVisible && !isDiagnosticsVisible && streamType == "live") {
-                                viewModel.nextChannel()
-                                true
+                            if (!isQuickSettingsVisible && !isDiagnosticsVisible) {
+                                if (!isOverlayVisible) {
+                                    if (streamType == "live") {
+                                        viewModel.nextChannel()
+                                        true
+                                    } else {
+                                        viewModel.showOverlay(4000L)
+                                        true
+                                    }
+                                } else false
                             } else false
                         }
                         KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
                         KeyEvent.KEYCODE_MEDIA_STEP_FORWARD -> {
                             if (!isQuickSettingsVisible && !isDiagnosticsVisible) {
-                                viewModel.seekForward()
+                                viewModel.seekForward(10_000L)
                                 true
                             } else false
                         }
                         KeyEvent.KEYCODE_MEDIA_REWIND,
                         KeyEvent.KEYCODE_MEDIA_STEP_BACKWARD -> {
                             if (!isQuickSettingsVisible && !isDiagnosticsVisible) {
-                                viewModel.seekBackward()
+                                viewModel.seekBackward(10_000L)
                                 true
                             } else false
                         }
                         KeyEvent.KEYCODE_DPAD_LEFT -> {
                             if (!isQuickSettingsVisible && !isDiagnosticsVisible) {
-                                viewModel.seekBackward()
-                                true
+                                if (!isOverlayVisible) {
+                                    if (streamType != "live") {
+                                        viewModel.seekBackward(10_000L)
+                                        true
+                                    } else {
+                                        viewModel.showOverlay(4000L)
+                                        true
+                                    }
+                                } else false
                             } else false
                         }
                         KeyEvent.KEYCODE_DPAD_RIGHT -> {
                             if (!isQuickSettingsVisible && !isDiagnosticsVisible) {
-                                viewModel.seekForward()
-                                true
+                                if (!isOverlayVisible) {
+                                    if (streamType != "live") {
+                                        viewModel.seekForward(10_000L)
+                                        true
+                                    } else {
+                                        viewModel.showOverlay(4000L)
+                                        true
+                                    }
+                                } else false
                             } else false
                         }
                         KeyEvent.KEYCODE_MEDIA_NEXT -> {
@@ -189,7 +235,7 @@ fun PlayerScreen(
                                 if (streamType == "live") {
                                     viewModel.nextChannel()
                                 } else {
-                                    viewModel.seekForward(30_000L)
+                                    viewModel.seekForward(10_000L)
                                 }
                                 true
                             } else false
@@ -199,7 +245,7 @@ fun PlayerScreen(
                                 if (streamType == "live") {
                                     viewModel.previousChannel()
                                 } else {
-                                    viewModel.seekBackward(30_000L)
+                                    viewModel.seekBackward(10_000L)
                                 }
                                 true
                             } else false
@@ -225,8 +271,10 @@ fun PlayerScreen(
                                 viewModel.confirmPendingSeek()
                                 true
                             } else if (!isQuickSettingsVisible) {
-                                viewModel.toggleOverlay()
-                                true
+                                if (!isOverlayVisible) {
+                                    viewModel.showOverlay(4000L)
+                                    true
+                                } else false
                             } else false
                         }
                         KeyEvent.KEYCODE_BACK -> {
@@ -236,8 +284,14 @@ fun PlayerScreen(
                             } else if (isDiagnosticsVisible) {
                                 viewModel.closeDiagnosticsHud()
                                 true
+                            } else if (isBingeBarVisible) {
+                                viewModel.dismissBingeBar()
+                                true
+                            } else if (resumePrompt != null) {
+                                viewModel.dismissResumePrompt()
+                                true
                             } else if (isOverlayVisible) {
-                                viewModel.toggleOverlay()
+                                viewModel.hideOverlay()
                                 true
                             } else {
                                 viewModel.stopPlayback()
@@ -275,334 +329,103 @@ fun PlayerScreen(
                 .clickable { viewModel.toggleOverlay() }
         )
 
-        // Transient Channel Switch Pill
-        AnimatedVisibility(
-            visible = switchNotice != null,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(32.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xCC14141F))
-                    .border(1.dp, AccentBlue, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                Text(
-                    text = switchNotice.orEmpty(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TextWhite
-                )
-            }
-        }
+        // Nuvio Animated Center Transient HUD
+        NuvioCenterTransientHud(
+            noticeText = switchNotice,
+            modifier = Modifier.align(Alignment.Center)
+        )
 
-        // Auto-Hiding Controls & EPG Overlay
+        // Nuvio Auto-Hiding Controls & Header Overlay
         AnimatedVisibility(
             visible = isOverlayVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(250)),
+            exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(250)),
             modifier = Modifier.fillMaxSize()
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Top Gradient & Channel Header
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)
-                            )
-                        )
-                        .padding(horizontal = 36.dp, vertical = 28.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val isLive = streamType == "live"
-                        val isVod = streamType == "vod"
-                        val badgeColor = if (isLive) LiveRed else AccentBlue
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(end = 24.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(badgeColor)
-                                )
-                                Text(
-                                    text = if (isLive) "LIVE" else if (isVod) "VOD" else "SERIES",
-                                    color = badgeColor,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Text(
-                                    text = "• ${containerExt?.uppercase() ?: if (isLive) "HLS" else "MP4"}",
-                                    color = TextMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = currentChannel?.name ?: streamTitle ?: if (isLive) "Live Stream" else if (isVod) "Movie $streamId" else "Episode $streamId",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = TextWhite,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                // Top Header Bar
+                NuvioPlayerHeader(
+                    title = currentChannel?.name ?: streamTitle ?: if (streamType == "live") "Live Stream" else if (streamType == "vod") "Movie $streamId" else "Episode $streamId",
+                    subtitle = if (streamType == "live") currentProgram?.title else null,
+                    streamType = streamType,
+                    containerExt = containerExt,
+                    isFavorite = isFavorite || currentChannel?.isFavorite == true,
+                    isDiagnosticsVisible = isDiagnosticsVisible,
+                    isQuickSettingsVisible = isQuickSettingsVisible,
+                    currentPositionMs = currentPositionMs,
+                    durationMs = durationMs,
+                    onBackClick = {
+                        viewModel.stopPlayback()
+                        onBackPressed()
+                    },
+                    onToggleFavorite = { viewModel.toggleFavorite() },
+                    onToggleDiagnostics = { viewModel.toggleDiagnostics() },
+                    onToggleQuickSettings = { viewModel.toggleQuickSettings() },
+                    backFocusRequester = headerBackFocusRequester,
+                    favoriteFocusRequester = headerFavoriteFocusRequester,
+                    downFocusRequester = if (streamType != "live") seekBarFocusRequester else heroPlayPauseFocusRequester,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
 
-                        // Action Buttons: Stats HUD, Quick Settings, Favorite
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Stats HUD Toggle Button
-                            Card(
-                                onClick = { viewModel.toggleDiagnostics() },
-                                modifier = Modifier.clickable { viewModel.toggleDiagnostics() },
-                                colors = CardDefaults.colors(
-                                    containerColor = if (isDiagnosticsVisible) AccentBlue.copy(alpha = 0.25f) else DarkSurface,
-                                    focusedContainerColor = DarkSurfaceElevated
-                                ),
-                                border = CardDefaults.border(
-                                    border = Border(border = BorderStroke(1.dp, if (isDiagnosticsVisible) AccentBlue else Color.White.copy(alpha = 0.2f))),
-                                    focusedBorder = Border(border = BorderStroke(2.dp, AccentBlue))
-                                ),
-                                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
-                            ) {
-                                Text(
-                                    text = "📊 Stats",
-                                    color = if (isDiagnosticsVisible) AccentBlue else TextWhite,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                                )
-                            }
-
-                            // Quick Settings Drawer Toggle Button
-                            Card(
-                                onClick = { viewModel.toggleQuickSettings() },
-                                modifier = Modifier.clickable { viewModel.toggleQuickSettings() },
-                                colors = CardDefaults.colors(
-                                    containerColor = if (isQuickSettingsVisible) AccentBlue.copy(alpha = 0.25f) else DarkSurface,
-                                    focusedContainerColor = DarkSurfaceElevated
-                                ),
-                                border = CardDefaults.border(
-                                    border = Border(border = BorderStroke(1.dp, if (isQuickSettingsVisible) AccentBlue else Color.White.copy(alpha = 0.2f))),
-                                    focusedBorder = Border(border = BorderStroke(2.dp, AccentBlue))
-                                ),
-                                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
-                            ) {
-                                Text(
-                                    text = "⚙ Settings",
-                                    color = if (isQuickSettingsVisible) AccentBlue else TextWhite,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                                )
-                            }
-
-                            // Favorite Button
-                            val favActive = isFavorite || currentChannel?.isFavorite == true
-                            Card(
-                                onClick = { viewModel.toggleFavorite() },
-                                modifier = Modifier.clickable { viewModel.toggleFavorite() },
-                                colors = CardDefaults.colors(
-                                    containerColor = if (favActive) AccentBlue.copy(alpha = 0.2f) else DarkSurface,
-                                    focusedContainerColor = DarkSurfaceElevated
-                                ),
-                                border = CardDefaults.border(
-                                    border = Border(border = BorderStroke(1.dp, if (favActive) AccentBlue else Color.White.copy(alpha = 0.2f))),
-                                    focusedBorder = Border(border = BorderStroke(2.dp, AccentBlue))
-                                ),
-                                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp))
-                            ) {
-                                Text(
-                                    text = if (favActive) "★ Favorited" else "☆ Add to Favorites",
-                                    color = if (favActive) AccentBlue else TextWhite,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Bottom Gradient & EPG Info
-                Box(
+                // Bottom Section: Seekbar + Control Dock or Live TV EPG Card
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.70f),
+                                    Color.Black.copy(alpha = 0.95f)
+                                )
                             )
                         )
-                        .padding(horizontal = 36.dp, vertical = 28.dp)
+                        .padding(bottom = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        if (streamType == "live") {
-                            if (currentProgram != null) {
-                                Text(
-                                    text = "NOW PLAYING",
-                                    color = AccentBlue,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = currentProgram.title,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextWhite
-                                )
-                                if (!currentProgram.description.isNullOrBlank()) {
-                                    Text(
-                                        text = currentProgram.description,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = TextMuted,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(10.dp))
-                                LinearProgressIndicator(
-                                    progress = { currentProgram.progressPercent },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp)),
-                                    color = AccentBlue,
-                                    trackColor = Color.White.copy(alpha = 0.2f)
-                                )
-                            } else {
-                                Text(
-                                    text = "Program guide unavailable for this stream",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextMuted
-                                )
-                            }
-                        } else {
-                            // VOD & TV Series Playback Controls
-                            val progress = if (durationMs > 0L) (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = streamTitle ?: "Video",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextWhite
-                                )
-                                Text(
-                                    text = "${PlayerViewModel.formatTime(currentPositionMs)} / ${PlayerViewModel.formatTime(durationMs)}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextMuted,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = AccentBlue,
-                                trackColor = Color.White.copy(alpha = 0.2f)
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Button(
-                                    onClick = { viewModel.seekBackward(60000L) },
-                                    colors = ButtonDefaults.colors(
-                                        containerColor = DarkSurfaceElevated,
-                                        focusedContainerColor = AccentBlue
-                                    ),
-                                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
-                                ) {
-                                    Text(text = "⏪ -1m", color = TextWhite, fontSize = 12.sp)
-                                }
-                                Button(
-                                    onClick = { viewModel.seekBackward(10000L) },
-                                    colors = ButtonDefaults.colors(
-                                        containerColor = DarkSurfaceElevated,
-                                        focusedContainerColor = AccentBlue
-                                    ),
-                                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
-                                ) {
-                                    Text(text = "⏪ -10s", color = TextWhite, fontSize = 12.sp)
-                                }
-                                Button(
-                                    onClick = { viewModel.togglePlayPause() },
-                                    colors = ButtonDefaults.colors(
-                                        containerColor = AccentBlue,
-                                        focusedContainerColor = AccentBlue.copy(alpha = 0.85f)
-                                    ),
-                                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
-                                ) {
-                                    Text(
-                                        text = if (isPlaying) "⏸ Pause" else "▶ Play",
-                                        color = TextWhite,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                                Button(
-                                    onClick = { viewModel.seekForward(10000L) },
-                                    colors = ButtonDefaults.colors(
-                                        containerColor = DarkSurfaceElevated,
-                                        focusedContainerColor = AccentBlue
-                                    ),
-                                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
-                                ) {
-                                    Text(text = "⏩ +10s", color = TextWhite, fontSize = 12.sp)
-                                }
-                                Button(
-                                    onClick = { viewModel.seekForward(60000L) },
-                                    colors = ButtonDefaults.colors(
-                                        containerColor = DarkSurfaceElevated,
-                                        focusedContainerColor = AccentBlue
-                                    ),
-                                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
-                                ) {
-                                    Text(text = "⏩ +1m", color = TextWhite, fontSize = 12.sp)
-                                }
-                                Button(
-                                    onClick = { viewModel.seekForward(300000L) },
-                                    colors = ButtonDefaults.colors(
-                                        containerColor = DarkSurfaceElevated,
-                                        focusedContainerColor = AccentBlue
-                                    ),
-                                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
-                                ) {
-                                    Text(text = "⏩ +5m", color = TextWhite, fontSize = 12.sp)
-                                }
-                            }
-                        }
+                    if (streamType == "live") {
+                        NuvioLiveBottomCard(
+                            currentProgram = currentProgram,
+                            channelName = currentChannel?.name ?: streamTitle ?: "Live TV"
+                        )
+                    } else {
+                        NuvioInteractiveTvSeekBar(
+                            currentPositionMs = currentPositionMs,
+                            durationMs = durationMs,
+                            bufferedPositionMs = bufferedPositionMs,
+                            onSeekRelative = { deltaMs -> viewModel.seekTo(currentPositionMs + deltaMs) },
+                            onCommitSeek = { viewModel.confirmPendingSeek() },
+                            focusRequester = seekBarFocusRequester,
+                            upFocusRequester = headerBackFocusRequester,
+                            downFocusRequester = heroPlayPauseFocusRequester
+                        )
                     }
+
+                    NuvioPlayerControlDock(
+                        streamType = streamType,
+                        isPlaying = isPlaying,
+                        aspectRatioMode = aspectRatioMode,
+                        playbackSpeed = playbackSpeed,
+                        isSeries = streamType == "series",
+                        onTogglePlayPause = { viewModel.togglePlayPause() },
+                        onSeekRelative = { deltaMs ->
+                            if (deltaMs > 0) viewModel.seekForward(deltaMs) else viewModel.seekBackward(-deltaMs)
+                        },
+                        onPrevious = {
+                            if (streamType == "live") viewModel.previousChannel() else viewModel.restartFromBeginning()
+                        },
+                        onNext = {
+                            if (streamType == "live") viewModel.nextChannel() else if (streamType == "series") viewModel.playNextEpisode() else viewModel.seekForward(30_000L)
+                        },
+                        onOpenAudioTracks = { viewModel.toggleQuickSettings() },
+                        onOpenSubtitles = { viewModel.toggleQuickSettings() },
+                        onCycleAspectRatio = { viewModel.cycleAspectRatio() },
+                        onCyclePlaybackSpeed = { viewModel.cyclePlaybackSpeed() },
+                        heroPlayPauseFocusRequester = heroPlayPauseFocusRequester,
+                        upFocusRequester = if (streamType != "live") seekBarFocusRequester else headerBackFocusRequester
+                    )
                 }
             }
         }

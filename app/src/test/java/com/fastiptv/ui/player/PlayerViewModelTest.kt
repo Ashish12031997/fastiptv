@@ -522,4 +522,52 @@ class PlayerViewModelTest {
         assertEquals(50, streamPlayer.lastPlayedVodStreamId)
         viewModel.stopPlayback()
     }
+
+    @Test
+    fun testPlaybackSpeedCycling() = runTest(testDispatcher) {
+        assertEquals(1.0f, viewModel.playbackSpeed.value)
+
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(1.25f, viewModel.playbackSpeed.value)
+
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(1.5f, viewModel.playbackSpeed.value)
+
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(2.0f, viewModel.playbackSpeed.value)
+
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(0.75f, viewModel.playbackSpeed.value)
+
+        viewModel.cyclePlaybackSpeed()
+        assertEquals(1.0f, viewModel.playbackSpeed.value)
+    }
+
+    @Test
+    fun testAspectRatioCycling() = runTest(testDispatcher) {
+        assertEquals(com.fastiptv.player.AspectRatioMode.FIT, viewModel.aspectRatioMode.value)
+
+        viewModel.cycleAspectRatio()
+        assertEquals(com.fastiptv.player.AspectRatioMode.FILL, viewModel.aspectRatioMode.value)
+
+        viewModel.cycleAspectRatio()
+        assertEquals(com.fastiptv.player.AspectRatioMode.ZOOM, viewModel.aspectRatioMode.value)
+
+        viewModel.cycleAspectRatio()
+        assertEquals(com.fastiptv.player.AspectRatioMode.FIT, viewModel.aspectRatioMode.value)
+    }
+
+    @Test
+    fun testEndTimeAndClockFormatting() {
+        val clock = PlayerViewModel.formatClockTime()
+        assertTrue(clock.isNotBlank())
+
+        val endTime = PlayerViewModel.formatEndTime(currentPosMs = 10_000L, durationMs = 70_000L)
+        assertNotNull(endTime)
+        assertTrue(endTime!!.startsWith("Ends at "))
+
+        val nullEndTime = PlayerViewModel.formatEndTime(currentPosMs = 70_000L, durationMs = 70_000L)
+        assertEquals(null, nullEndTime)
+    }
 }
+
