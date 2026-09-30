@@ -4,10 +4,15 @@ import android.view.KeyEvent
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -422,8 +427,14 @@ fun LiveTvScreen(
         // 3. Indian Cable TV Bottom Banner (OSD)
         AnimatedVisibility(
             visible = isBannerVisible && !isDrawerOpen,
-            enter = fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it / 2 }),
-            exit = fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it / 2 }),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 160)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
@@ -437,11 +448,32 @@ fun LiveTvScreen(
             }
         }
 
-        // 4. Semi-Transparent 2-Column Channel Guide Drawer (Tata Play / Airtel DTH Style)
+        // 4. Scrim Backdrop for Channel Guide Drawer
         AnimatedVisibility(
             visible = isDrawerOpen,
-            enter = slideInHorizontally(initialOffsetX = { -it }),
-            exit = slideOutHorizontally(targetOffsetX = { -it }),
+            enter = fadeIn(animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable { viewModel.closeDrawer() }
+            )
+        }
+
+        // 5. Semi-Transparent 2-Column Channel Guide Drawer (Tata Play / Airtel DTH Style)
+        AnimatedVisibility(
+            visible = isDrawerOpen,
+            enter = slideInHorizontally(
+                initialOffsetX = { -it },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)),
+            exit = slideOutHorizontally(
+                targetOffsetX = { -it },
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 150)),
             modifier = Modifier
                 .align(Alignment.CenterStart)
                 .fillMaxHeight()

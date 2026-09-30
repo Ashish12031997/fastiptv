@@ -21,12 +21,36 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import com.fastiptv.ui.components.TopNavBar
 import com.fastiptv.ui.livetv.LiveTvScreen
 import com.fastiptv.ui.movies.MoviesScreen
 import com.fastiptv.ui.player.PlayerScreen
 import com.fastiptv.ui.series.SeriesScreen
 import com.fastiptv.ui.settings.SettingsScreen
+
+private fun getRouteOrder(route: String?): Int {
+    if (route == null) return 0
+    return when {
+        route.startsWith("movies") -> 0
+        route.startsWith("live_tv") -> 1
+        route.startsWith("series") -> 2
+        route.startsWith("settings") -> 3
+        route.startsWith("player") -> 4
+        else -> 0
+    }
+}
 
 @Composable
 fun AppNavigation(
@@ -53,8 +77,18 @@ fun AppNavigation(
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Top Navigation Bar (Hidden when in fullscreen player or fullscreen Live TV)
-        if (!isFullscreenRoute) {
+        // Top Navigation Bar (Animated slide/fade when entering or leaving fullscreen modes)
+        AnimatedVisibility(
+            visible = !isFullscreenRoute,
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 160))
+        ) {
             TopNavBar(
                 currentRoute = currentRoute,
                 topNavFocusRequester = topNavFocusRequester,
@@ -85,7 +119,187 @@ fun AppNavigation(
                 .fillMaxWidth()
                 .focusProperties {
                     up = topNavFocusRequester
+                },
+            enterTransition = {
+                val initialRoute = initialState.destination.route
+                val targetRoute = targetState.destination.route
+                val isEnteringPlayer = targetRoute?.startsWith("player") == true
+                val isExitingPlayer = initialRoute?.startsWith("player") == true
+
+                when {
+                    isEnteringPlayer -> {
+                        scaleIn(
+                            initialScale = 0.94f,
+                            animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing)
+                        ) + fadeIn(
+                            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                        )
+                    }
+                    isExitingPlayer -> {
+                        fadeIn(
+                            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                        )
+                    }
+                    targetRoute?.startsWith("settings") == true -> {
+                        slideInVertically(
+                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                        ) { (it * 0.05f).toInt() } + fadeIn(
+                            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                        )
+                    }
+                    initialRoute?.startsWith("settings") == true -> {
+                        fadeIn(
+                            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                        )
+                    }
+                    else -> {
+                        val initialOrder = getRouteOrder(initialRoute)
+                        val targetOrder = getRouteOrder(targetRoute)
+                        if (targetOrder >= initialOrder) {
+                            slideInHorizontally(
+                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                            ) { (it * 0.08f).toInt() } + fadeIn(
+                                animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                            )
+                        } else {
+                            slideInHorizontally(
+                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                            ) { -(it * 0.08f).toInt() } + fadeIn(
+                                animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                            )
+                        }
+                    }
                 }
+            },
+            exitTransition = {
+                val initialRoute = initialState.destination.route
+                val targetRoute = targetState.destination.route
+                val isEnteringPlayer = targetRoute?.startsWith("player") == true
+                val isExitingPlayer = initialRoute?.startsWith("player") == true
+
+                when {
+                    isExitingPlayer -> {
+                        scaleOut(
+                            targetScale = 0.94f,
+                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+                        ) + fadeOut(
+                            animationSpec = tween(durationMillis = 180)
+                        )
+                    }
+                    isEnteringPlayer -> {
+                        fadeOut(
+                            animationSpec = tween(durationMillis = 180)
+                        )
+                    }
+                    initialRoute?.startsWith("settings") == true -> {
+                        slideOutVertically(
+                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                        ) { (it * 0.05f).toInt() } + fadeOut(
+                            animationSpec = tween(durationMillis = 160)
+                        )
+                    }
+                    targetRoute?.startsWith("settings") == true -> {
+                        fadeOut(
+                            animationSpec = tween(durationMillis = 180)
+                        )
+                    }
+                    else -> {
+                        val initialOrder = getRouteOrder(initialRoute)
+                        val targetOrder = getRouteOrder(targetRoute)
+                        if (targetOrder >= initialOrder) {
+                            slideOutHorizontally(
+                                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                            ) { -(it * 0.08f).toInt() } + fadeOut(
+                                animationSpec = tween(durationMillis = 160)
+                            )
+                        } else {
+                            slideOutHorizontally(
+                                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                            ) { (it * 0.08f).toInt() } + fadeOut(
+                                animationSpec = tween(durationMillis = 160)
+                            )
+                        }
+                    }
+                }
+            },
+            popEnterTransition = {
+                val initialRoute = initialState.destination.route
+                val targetRoute = targetState.destination.route
+                val isExitingPlayer = initialRoute?.startsWith("player") == true
+
+                when {
+                    isExitingPlayer -> {
+                        scaleIn(
+                            initialScale = 1.04f,
+                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                        ) + fadeIn(
+                            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                        )
+                    }
+                    targetRoute?.startsWith("settings") == true -> {
+                        fadeIn(
+                            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                        )
+                    }
+                    else -> {
+                        val initialOrder = getRouteOrder(initialRoute)
+                        val targetOrder = getRouteOrder(targetRoute)
+                        if (targetOrder <= initialOrder) {
+                            slideInHorizontally(
+                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                            ) { -(it * 0.08f).toInt() } + fadeIn(
+                                animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                            )
+                        } else {
+                            slideInHorizontally(
+                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+                            ) { (it * 0.08f).toInt() } + fadeIn(
+                                animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                            )
+                        }
+                    }
+                }
+            },
+            popExitTransition = {
+                val initialRoute = initialState.destination.route
+                val targetRoute = targetState.destination.route
+                val isExitingPlayer = initialRoute?.startsWith("player") == true
+
+                when {
+                    isExitingPlayer -> {
+                        scaleOut(
+                            targetScale = 0.94f,
+                            animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+                        ) + fadeOut(
+                            animationSpec = tween(durationMillis = 180)
+                        )
+                    }
+                    initialRoute?.startsWith("settings") == true -> {
+                        slideOutVertically(
+                            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                        ) { (it * 0.05f).toInt() } + fadeOut(
+                            animationSpec = tween(durationMillis = 160)
+                        )
+                    }
+                    else -> {
+                        val initialOrder = getRouteOrder(initialRoute)
+                        val targetOrder = getRouteOrder(targetRoute)
+                        if (targetOrder <= initialOrder) {
+                            slideOutHorizontally(
+                                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                            ) { (it * 0.08f).toInt() } + fadeOut(
+                                animationSpec = tween(durationMillis = 160)
+                            )
+                        } else {
+                            slideOutHorizontally(
+                                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+                            ) { -(it * 0.08f).toInt() } + fadeOut(
+                                animationSpec = tween(durationMillis = 160)
+                            )
+                        }
+                    }
+                }
+            }
         ) {
             // 1. Movies (Default start screen)
             composable(Screen.Movies.route) {

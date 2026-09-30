@@ -5,8 +5,13 @@ import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -551,8 +556,14 @@ fun PlayerScreen(
         // Real-Time Stream Diagnostics ("Nerd Stats") HUD
         AnimatedVisibility(
             visible = isDiagnosticsVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = scaleIn(
+                initialScale = 0.94f,
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)),
+            exit = scaleOut(
+                targetScale = 0.94f,
+                animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 140)),
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 90.dp, end = 32.dp)
@@ -563,11 +574,32 @@ fun PlayerScreen(
             )
         }
 
+        // In-Player Quick Settings Side Drawer Backdrop Scrim
+        AnimatedVisibility(
+            visible = isQuickSettingsVisible,
+            enter = fadeIn(animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable { viewModel.closeQuickSettings() }
+            )
+        }
+
         // In-Player Quick Settings Side Drawer
         AnimatedVisibility(
             visible = isQuickSettingsVisible,
-            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
-            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
+            enter = slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)),
+            exit = slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 150)),
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             PlayerQuickSettingsDrawer(
@@ -583,8 +615,14 @@ fun PlayerScreen(
         // Intelligent VOD / Series Resume Prompt Pill
         AnimatedVisibility(
             visible = resumePrompt != null,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 160)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = if (isOverlayVisible) 170.dp else 40.dp)
@@ -601,8 +639,14 @@ fun PlayerScreen(
         // Next Episode Auto-Play Binge Bar Card
         AnimatedVisibility(
             visible = isBingeBarVisible && nextEpisode != null,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            ) + fadeIn(animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(durationMillis = 160)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 36.dp, bottom = if (isOverlayVisible) 170.dp else 40.dp)

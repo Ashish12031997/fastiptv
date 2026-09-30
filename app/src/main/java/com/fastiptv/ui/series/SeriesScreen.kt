@@ -2,6 +2,16 @@ package com.fastiptv.ui.series
 
 import androidx.activity.compose.BackHandler
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -329,149 +339,182 @@ fun SeriesScreen(
             }
         }
 
-        // Series Detail & Episode Picker Overlay
-        if (selectedSeries != null) {
-            val series = selectedSeries!!
+        // Series Detail & Episode Picker Floating Window
+        AnimatedVisibility(
+            visible = selectedSeries != null,
+            enter = fadeIn(animationSpec = tween(220, easing = LinearOutSlowInEasing)),
+            exit = fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.92f))
-                    .padding(32.dp)
+                    .background(Color.Black.copy(alpha = 0.85f))
+                    .padding(horizontal = 44.dp, vertical = 24.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Header Row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                selectedSeries?.let { series ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(DarkSurface.copy(alpha = 0.96f))
+                            .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
+                            .padding(28.dp)
+                            .animateEnterExit(
+                                enter = scaleIn(
+                                    initialScale = 0.94f,
+                                    animationSpec = tween(240, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(200)),
+                                exit = scaleOut(
+                                    targetScale = 0.94f,
+                                    animationSpec = tween(180, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(160))
+                            )
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            if (!series.coverUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = series.coverUrl,
-                                    contentDescription = series.name,
-                                    modifier = Modifier
-                                        .size(60.dp, 90.dp)
-                                        .clip(RoundedCornerShape(8.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = series.name,
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextWhite
-                                )
-                                Text(
-                                    text = series.genre ?: "Series",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextMuted
-                                )
-                            }
-                        }
-
-                        Button(
-                            onClick = { viewModel.closeSeriesDetail() },
-                            modifier = Modifier
-                                .focusRequester(closeButtonFocusRequester)
-                                .clickable { viewModel.closeSeriesDetail() },
-                            colors = ButtonDefaults.colors(
-                                containerColor = DarkSurfaceElevated,
-                                focusedContainerColor = AccentBlue
-                            ),
-                            shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
-                        ) {
-                            Text(text = "✕ Close", color = TextWhite, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    if (isLoadingDetail) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = AccentBlue)
-                        }
-                    } else if (seriesDetail != null) {
-                        val seasons = seriesDetail!!.seasons
-                        val episodesMap = seriesDetail!!.episodes
-
-                        // Season selector
-                        if (seasons.isNotEmpty()) {
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(bottom = 16.dp)
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // Header Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                items(seasons, key = { "season_${it.seasonNumber}" }) { season ->
-                                    val seasonKey = season.seasonNumber.toString()
-                                    val isSeasonSelected = seasonKey == selectedSeasonNumber || (selectedSeasonNumber !in episodesMap.keys && season == seasons.first())
-                                    Button(
-                                        onClick = { selectedSeasonNumber = seasonKey },
-                                        colors = ButtonDefaults.colors(
-                                            containerColor = if (isSeasonSelected) AccentBlue else DarkSurface,
-                                            focusedContainerColor = if (isSeasonSelected) AccentBlue.copy(alpha = 0.85f) else DarkSurfaceElevated
-                                        ),
-                                        shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                                        modifier = Modifier.clickable { selectedSeasonNumber = seasonKey }
-                                    ) {
-                                        Text(text = season.name, color = TextWhite, fontSize = 12.sp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    if (!series.coverUrl.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = series.coverUrl,
+                                            contentDescription = series.name,
+                                            modifier = Modifier
+                                                .size(60.dp, 90.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = series.name,
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextWhite
+                                        )
+                                        Text(
+                                            text = series.genre ?: "Series",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = TextMuted
+                                        )
                                     }
                                 }
-                            }
-                        }
 
-                        // Episodes List
-                        val currentEpisodes = episodesMap[selectedSeasonNumber] ?: episodesMap.values.firstOrNull() ?: emptyList()
-
-                        if (currentEpisodes.isEmpty()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "No episodes found for this season.",
-                                    color = TextMuted
-                                )
+                                Button(
+                                    onClick = { viewModel.closeSeriesDetail() },
+                                    modifier = Modifier
+                                        .focusRequester(closeButtonFocusRequester)
+                                        .clickable { viewModel.closeSeriesDetail() },
+                                    colors = ButtonDefaults.colors(
+                                        containerColor = DarkSurfaceElevated,
+                                        focusedContainerColor = AccentBlue
+                                    ),
+                                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp))
+                                ) {
+                                    Text(text = "✕ Close", color = TextWhite, fontWeight = FontWeight.SemiBold)
+                                }
                             }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(currentEpisodes, key = { "ep_${it.id}" }) { episode ->
-                                    EpisodeRow(
-                                        episode = episode,
-                                        onClick = {
-                                            val epId = episode.id.toIntOrNull() ?: 0
-                                            onEpisodeClick(epId, episode.title, episode.containerExt, selectedSeries?.id)
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            if (isLoadingDetail) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = AccentBlue)
+                                }
+                            } else if (seriesDetail != null) {
+                                val seasons = seriesDetail!!.seasons
+                                val episodesMap = seriesDetail!!.episodes
+
+                                // Season selector
+                                if (seasons.isNotEmpty()) {
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.padding(bottom = 16.dp)
+                                    ) {
+                                        items(seasons, key = { "season_${it.seasonNumber}" }) { season ->
+                                            val seasonKey = season.seasonNumber.toString()
+                                            val isSeasonSelected = seasonKey == selectedSeasonNumber || (selectedSeasonNumber !in episodesMap.keys && season == seasons.first())
+                                            Button(
+                                                onClick = { selectedSeasonNumber = seasonKey },
+                                                colors = ButtonDefaults.colors(
+                                                    containerColor = if (isSeasonSelected) AccentBlue else DarkSurface,
+                                                    focusedContainerColor = if (isSeasonSelected) AccentBlue.copy(alpha = 0.85f) else DarkSurfaceElevated
+                                                ),
+                                                shape = ButtonDefaults.shape(shape = RoundedCornerShape(8.dp)),
+                                                modifier = Modifier.clickable { selectedSeasonNumber = seasonKey }
+                                            ) {
+                                                Text(text = season.name, color = TextWhite, fontSize = 12.sp)
+                                            }
                                         }
+                                    }
+                                }
+
+                                // Episodes List (Crossfade animated on season change)
+                                AnimatedContent(
+                                    targetState = selectedSeasonNumber,
+                                    transitionSpec = {
+                                        fadeIn(animationSpec = tween(180, easing = LinearOutSlowInEasing)) togetherWith
+                                            fadeOut(animationSpec = tween(120, easing = FastOutSlowInEasing))
+                                    },
+                                    label = "SeasonEpisodesCrossfade",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                ) { seasonKey ->
+                                    val currentEpisodes = episodesMap[seasonKey] ?: episodesMap.values.firstOrNull() ?: emptyList()
+
+                                    if (currentEpisodes.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "No episodes found for this season.",
+                                                color = TextMuted
+                                            )
+                                        }
+                                    } else {
+                                        LazyColumn(
+                                            modifier = Modifier.fillMaxSize(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            items(currentEpisodes, key = { "ep_${it.id}" }) { episode ->
+                                                EpisodeRow(
+                                                    episode = episode,
+                                                    onClick = {
+                                                        val epId = episode.id.toIntOrNull() ?: 0
+                                                        onEpisodeClick(epId, episode.title, episode.containerExt, selectedSeries?.id)
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Unable to load episodes for this series.",
+                                        color = TextMuted
                                     )
                                 }
                             }
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Unable to load episodes for this series.",
-                                color = TextMuted
-                            )
                         }
                     }
                 }
