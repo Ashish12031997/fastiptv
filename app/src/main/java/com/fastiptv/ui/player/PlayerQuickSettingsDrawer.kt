@@ -50,17 +50,16 @@ import com.fastiptv.ui.theme.TextWhite
 
 @Composable
 fun PlayerQuickSettingsDrawer(
-    currentAspectRatio: AspectRatioMode,
+    initialTab: Int = 0,
     audioTracks: List<PlayerTrackOption>,
     subtitleTracks: List<PlayerTrackOption>,
-    onSelectAspectRatio: (AspectRatioMode) -> Unit,
     onSelectAudioTrack: (PlayerTrackOption) -> Unit,
     onSelectSubtitleTrack: (PlayerTrackOption?) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabTitles = listOf("Aspect Ratio", "Audio", "Subtitles")
+    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 1)) }
+    val tabTitles = listOf("Audio", "Subtitles")
 
     Box(
         modifier = modifier
@@ -142,27 +141,6 @@ fun PlayerQuickSettingsDrawer(
             // Tab Content
             when (selectedTab) {
                 0 -> {
-                    // Aspect Ratio
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        AspectRatioMode.values().forEach { mode ->
-                            val isSelected = currentAspectRatio == mode
-                            DrawerOptionCard(
-                                title = mode.title,
-                                subtitle = when (mode) {
-                                    AspectRatioMode.FIT -> "Preserves 16:9 original source geometry"
-                                    AspectRatioMode.FILL -> "Stretches 4:3 content to fill 16:9 screen"
-                                    AspectRatioMode.ZOOM -> "Crops letterbox bars without distortion"
-                                },
-                                isSelected = isSelected,
-                                onClick = { onSelectAspectRatio(mode) }
-                            )
-                        }
-                    }
-                }
-                1 -> {
                     // Audio Tracks
                     if (audioTracks.isEmpty()) {
                         Box(
@@ -191,7 +169,7 @@ fun PlayerQuickSettingsDrawer(
                         }
                     }
                 }
-                2 -> {
+                1 -> {
                     // Subtitle Tracks
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth(),

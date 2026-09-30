@@ -30,23 +30,28 @@ class StreamPlayer @Inject constructor(
         val url = urlBuilder.buildLiveStreamUrl(config, streamId, format)
         android.util.Log.d("FastIPTV", "playLiveStream URL: $url (format=$format)")
 
-        errorHandler.onChannelChanged(streamId, title, format, streamType = "live")
+        try {
+            errorHandler.onChannelChanged(streamId, title, format, streamType = "live")
 
-        val mediaItem = MediaItem.Builder()
-            .setUri(url)
-            .setMediaId(streamId.toString())
-            .setLiveConfiguration(
-                MediaItem.LiveConfiguration.Builder()
-                    .setTargetOffsetMs(3_000)
-                    .setMinPlaybackSpeed(0.97f)
-                    .setMaxPlaybackSpeed(1.03f)
-                    .build()
-            )
-            .build()
+            val mediaItem = MediaItem.Builder()
+                .setUri(url)
+                .setMediaId(streamId.toString())
+                .setLiveConfiguration(
+                    MediaItem.LiveConfiguration.Builder()
+                        .setTargetOffsetMs(3_000)
+                        .setMinPlaybackSpeed(0.97f)
+                        .setMaxPlaybackSpeed(1.03f)
+                        .build()
+                )
+                .build()
 
-        exoPlayer.setMediaItem(mediaItem)
-        exoPlayer.prepare()
-        exoPlayer.play()
+            exoPlayer.stop()
+            exoPlayer.setMediaItem(mediaItem, /* resetPosition = */ true)
+            exoPlayer.prepare()
+            exoPlayer.play()
+        } catch (e: Exception) {
+            android.util.Log.e("FastIPTV", "Error playing live stream streamId=$streamId", e)
+        }
     }
 
     override fun playVod(
@@ -59,16 +64,21 @@ class StreamPlayer @Inject constructor(
         val url = urlBuilder.buildVodUrl(config, streamId, containerExt)
         android.util.Log.d("FastIPTV", "playVod URL: $url")
 
-        errorHandler.onChannelChanged(streamId, title, containerExt, streamType = "vod")
+        try {
+            errorHandler.onChannelChanged(streamId, title, containerExt, streamType = "vod")
 
-        val mediaItem = MediaItem.Builder()
-            .setUri(url)
-            .setMediaId(streamId.toString())
-            .build()
+            val mediaItem = MediaItem.Builder()
+                .setUri(url)
+                .setMediaId(streamId.toString())
+                .build()
 
-        exoPlayer.setMediaItem(mediaItem, startPositionMs)
-        exoPlayer.prepare()
-        exoPlayer.play()
+            exoPlayer.stop()
+            exoPlayer.setMediaItem(mediaItem, startPositionMs)
+            exoPlayer.prepare()
+            exoPlayer.play()
+        } catch (e: Exception) {
+            android.util.Log.e("FastIPTV", "Error playing VOD streamId=$streamId", e)
+        }
     }
 
     override fun playSeriesEpisode(
@@ -81,16 +91,21 @@ class StreamPlayer @Inject constructor(
         val url = urlBuilder.buildSeriesEpisodeUrl(config, episodeId, containerExt)
         android.util.Log.d("FastIPTV", "playSeriesEpisode URL: $url")
 
-        errorHandler.onChannelChanged(episodeId, title, containerExt, streamType = "series")
+        try {
+            errorHandler.onChannelChanged(episodeId, title, containerExt, streamType = "series")
 
-        val mediaItem = MediaItem.Builder()
-            .setUri(url)
-            .setMediaId(episodeId.toString())
-            .build()
+            val mediaItem = MediaItem.Builder()
+                .setUri(url)
+                .setMediaId(episodeId.toString())
+                .build()
 
-        exoPlayer.setMediaItem(mediaItem, startPositionMs)
-        exoPlayer.prepare()
-        exoPlayer.play()
+            exoPlayer.stop()
+            exoPlayer.setMediaItem(mediaItem, startPositionMs)
+            exoPlayer.prepare()
+            exoPlayer.play()
+        } catch (e: Exception) {
+            android.util.Log.e("FastIPTV", "Error playing series episode episodeId=$episodeId", e)
+        }
     }
 
     override val currentPosition: Long

@@ -83,6 +83,9 @@ class PlayerViewModel @Inject constructor(
     private val _isQuickSettingsVisible = MutableStateFlow(false)
     val isQuickSettingsVisible: StateFlow<Boolean> = _isQuickSettingsVisible.asStateFlow()
 
+    private val _quickSettingsTab = MutableStateFlow(0)
+    val quickSettingsTab: StateFlow<Int> = _quickSettingsTab.asStateFlow()
+
     private val _aspectRatioMode = MutableStateFlow(AspectRatioMode.FIT)
     val aspectRatioMode: StateFlow<AspectRatioMode> = _aspectRatioMode.asStateFlow()
 
@@ -426,7 +429,8 @@ class PlayerViewModel @Inject constructor(
             _isFavorite.value = channel.isFavorite
 
             // Load surfing list
-            channel.categoryId?.let { catId ->
+            val catId = channel.categoryId
+            if (!catId.isNullOrBlank()) {
                 launch {
                     repository.observeChannelsByCategory(catId).collect { list ->
                         channelList = list
@@ -439,6 +443,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun playCurrentStream(streamId: Int, title: String? = null) {
+        currentStreamId = streamId
         val format = sessionManager?.getCachedStreamFormat() ?: "ts"
         streamPlayer.playLiveStream(streamId = streamId, format = format, title = title)
 
@@ -650,14 +655,16 @@ class PlayerViewModel @Inject constructor(
             consecutiveTimeoutCount = 0
         }
         frameTimeoutJob?.cancel()
-        if (channelList.isEmpty()) return
-        val currentIndex = channelList.indexOfFirst { it.id == _currentChannel.value?.id }
-        val nextIndex = if (currentIndex != -1 && currentIndex + 1 < channelList.size) {
+        val list = channelList
+        if (list.isEmpty()) return
+        val currentId = _currentChannel.value?.id
+        val currentIndex = list.indexOfFirst { it.id == currentId }
+        val nextIndex = if (currentIndex != -1 && currentIndex + 1 < list.size) {
             currentIndex + 1
         } else {
             0
         }
-        val next = channelList[nextIndex]
+        val next = list.getOrNull(nextIndex) ?: return
         _currentChannel.value = next
         _isFavorite.value = next.isFavorite
         showSwitchNotice("CH ${next.id} • ${next.name}")
@@ -667,14 +674,16 @@ class PlayerViewModel @Inject constructor(
     fun previousChannel() {
         consecutiveTimeoutCount = 0
         frameTimeoutJob?.cancel()
-        if (channelList.isEmpty()) return
-        val currentIndex = channelList.indexOfFirst { it.id == _currentChannel.value?.id }
+        val list = channelList
+        if (list.isEmpty()) return
+        val currentId = _currentChannel.value?.id
+        val currentIndex = list.indexOfFirst { it.id == currentId }
         val prevIndex = if (currentIndex > 0) {
             currentIndex - 1
         } else {
-            channelList.size - 1
+            list.size - 1
         }
-        val prev = channelList[prevIndex]
+        val prev = list.getOrNull(prevIndex) ?: return
         _currentChannel.value = prev
         _isFavorite.value = prev.isFavorite
         showSwitchNotice("CH ${prev.id} • ${prev.name}")
@@ -768,10 +777,23 @@ class PlayerViewModel @Inject constructor(
         diagnosticsJob = null
     }
 
+    fun openAudioSettings() {
+        _quickSettingsTab.value = 0
+        _isQuickSettingsVisible.value = true
+        refreshTracks()
+    }
+
+    fun openSubtitleSettings() {
+        _quickSettingsTab.value = 1
+        _isQuickSettingsVisible.value = true
+        refreshTracks()
+    }
+
     fun toggleQuickSettings() {
         val next = !_isQuickSettingsVisible.value
         _isQuickSettingsVisible.value = next
         if (next) {
+            _quickSettingsTab.value = 0
             refreshTracks()
         }
     }

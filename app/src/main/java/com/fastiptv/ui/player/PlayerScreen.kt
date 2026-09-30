@@ -94,6 +94,7 @@ fun PlayerScreen(
     val isDiagnosticsVisible by viewModel.isDiagnosticsVisible.collectAsState()
     val diagnostics by viewModel.diagnostics.collectAsState()
     val isQuickSettingsVisible by viewModel.isQuickSettingsVisible.collectAsState()
+    val quickSettingsTab by viewModel.quickSettingsTab.collectAsState()
     val aspectRatioMode by viewModel.aspectRatioMode.collectAsState()
     val audioTracks by viewModel.audioTracks.collectAsState()
     val subtitleTracks by viewModel.subtitleTracks.collectAsState()
@@ -113,14 +114,25 @@ fun PlayerScreen(
 
     LaunchedEffect(streamId, streamType, containerExt, seriesId) {
         viewModel.initStream(streamId, streamTitle, streamType, containerExt, seriesId)
-        rootFocusRequester.requestFocus()
+        try {
+            rootFocusRequester.requestFocus()
+        } catch (_: Exception) {}
     }
 
     LaunchedEffect(isOverlayVisible) {
         if (isOverlayVisible) {
-            heroPlayPauseFocusRequester.requestFocus()
+            kotlinx.coroutines.delay(100L)
+            try {
+                heroPlayPauseFocusRequester.requestFocus()
+            } catch (_: Exception) {
+                try {
+                    rootFocusRequester.requestFocus()
+                } catch (_: Exception) {}
+            }
         } else {
-            rootFocusRequester.requestFocus()
+            try {
+                rootFocusRequester.requestFocus()
+            } catch (_: Exception) {}
         }
     }
 
@@ -419,8 +431,8 @@ fun PlayerScreen(
                         onNext = {
                             if (streamType == "live") viewModel.nextChannel() else if (streamType == "series") viewModel.playNextEpisode() else viewModel.seekForward(30_000L)
                         },
-                        onOpenAudioTracks = { viewModel.toggleQuickSettings() },
-                        onOpenSubtitles = { viewModel.toggleQuickSettings() },
+                        onOpenAudioTracks = { viewModel.openAudioSettings() },
+                        onOpenSubtitles = { viewModel.openSubtitleSettings() },
                         onCycleAspectRatio = { viewModel.cycleAspectRatio() },
                         onCyclePlaybackSpeed = { viewModel.cyclePlaybackSpeed() },
                         heroPlayPauseFocusRequester = heroPlayPauseFocusRequester,
@@ -524,10 +536,9 @@ fun PlayerScreen(
             modifier = Modifier.align(Alignment.CenterEnd)
         ) {
             PlayerQuickSettingsDrawer(
-                currentAspectRatio = aspectRatioMode,
+                initialTab = quickSettingsTab,
                 audioTracks = audioTracks,
                 subtitleTracks = subtitleTracks,
-                onSelectAspectRatio = { viewModel.setAspectRatioMode(it) },
                 onSelectAudioTrack = { viewModel.selectAudioTrack(it) },
                 onSelectSubtitleTrack = { viewModel.selectSubtitleTrack(it) },
                 onClose = { viewModel.closeQuickSettings() }

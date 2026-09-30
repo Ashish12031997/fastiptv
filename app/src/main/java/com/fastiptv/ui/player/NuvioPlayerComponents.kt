@@ -935,7 +935,10 @@ fun NuvioLiveBottomCard(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 LinearProgressIndicator(
-                    progress = { currentProgram.progressPercent },
+                    progress = {
+                        val pct = try { currentProgram.progressPercent } catch (_: Exception) { 0f }
+                        if (pct.isNaN() || pct.isInfinite()) 0f else pct.coerceIn(0f, 1f)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(4.dp)
