@@ -196,4 +196,29 @@ class StreamErrorHandlerTest {
         errorHandler.onChannelChanged(streamId = 200, title = "New Channel")
         assertEquals(false, errorHandler.isFirstFrameRendered.first())
     }
+
+    @Test
+    fun testBehindLiveWindowSnapsToDefaultPosition() = testScope.runTest {
+        errorHandler.onChannelChanged(101, "Live Sports")
+        val error = PlaybackException("Behind live window", null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW)
+
+        errorHandler.onPlayerError(error)
+        testDispatcher.scheduler.runCurrent()
+
+        verify(exactly = 1) { player.seekToDefaultPosition() }
+        verify(exactly = 1) { player.prepare() }
+        verify(exactly = 1) { player.play() }
+    }
+
+    @Test
+    fun testManualRetryResetsCountAndPreparesPlayer() = testScope.runTest {
+        errorHandler.onChannelChanged(101, "News Channel")
+        errorHandler.manualRetry()
+
+        assertEquals(0, errorHandler.retryCount)
+        assertTrue(errorHandler.playerState.value is PlayerState.Reconnecting)
+        verify(exactly = 1) { connectionPool.evictAll() }
+        verify(exactly = 1) { player.prepare() }
+        verify(exactly = 1) { player.play() }
+    }
 }

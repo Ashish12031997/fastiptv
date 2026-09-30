@@ -38,9 +38,11 @@ class StreamPlayer @Inject constructor(
                 .setMediaId(streamId.toString())
                 .setLiveConfiguration(
                     MediaItem.LiveConfiguration.Builder()
-                        .setTargetOffsetMs(3_000)
-                        .setMinPlaybackSpeed(0.97f)
-                        .setMaxPlaybackSpeed(1.03f)
+                        .setTargetOffsetMs(6_000L)
+                        .setMinOffsetMs(2_000L)
+                        .setMaxOffsetMs(15_000L)
+                        .setMinPlaybackSpeed(0.95f)
+                        .setMaxPlaybackSpeed(1.05f)
                         .build()
                 )
                 .build()
@@ -137,6 +139,10 @@ class StreamPlayer @Inject constructor(
 
     override fun resume() {
         exoPlayer.play()
+    }
+
+    override fun retry() {
+        errorHandler.manualRetry()
     }
 
     /**

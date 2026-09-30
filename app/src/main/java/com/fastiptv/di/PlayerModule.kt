@@ -27,14 +27,14 @@ object PlayerModule {
     fun provideLoadControl(): LoadControl {
         return DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                /* minBufferMs = */ 3_000,
-                /* maxBufferMs = */ 30_000,
-                /* bufferForPlaybackMs = */ 600,
-                /* bufferForPlaybackAfterRebufferMs = */ 1_000
+                /* minBufferMs = */ 15_000,
+                /* maxBufferMs = */ 35_000,
+                /* bufferForPlaybackMs = */ 1_500,
+                /* bufferForPlaybackAfterRebufferMs = */ 3_500
             )
-            .setTargetBufferBytes(30 * 1024 * 1024)
+            .setTargetBufferBytes(32 * 1024 * 1024)
             .setPrioritizeTimeOverSizeThresholds(true)
-            .setBackBuffer(/* backBufferDurationMs = */ 10_000, /* retainBackBufferFromKeyframe = */ true)
+            .setBackBuffer(/* backBufferDurationMs = */ 0, /* retainBackBufferFromKeyframe = */ false)
             .build()
     }
 
@@ -50,12 +50,15 @@ object PlayerModule {
             .followRedirects(true)
             .followSslRedirects(true)
             .retryOnConnectionFailure(true)
-            .connectionPool(okhttp3.ConnectionPool(5, 1, java.util.concurrent.TimeUnit.MINUTES))
-            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .connectionPool(okhttp3.ConnectionPool(8, 2, java.util.concurrent.TimeUnit.MINUTES))
+            .connectTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(18, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
                     .header("User-Agent", AuthInterceptor.USER_AGENT)
+                    .header("Accept", "*/*")
+                    .header("Connection", "keep-alive")
                     .build()
                 chain.proceed(request)
             }
@@ -64,11 +67,14 @@ object PlayerModule {
         val httpDataSourceFactory = OkHttpDataSource.Factory(streamOkHttpClient)
             .setUserAgent(AuthInterceptor.USER_AGENT)
 
+        val tsFlags = androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS or
+                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM
+
         val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
-            .setTsExtractorFlags(
-                androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES
-            )
-            .setTsExtractorTimestampSearchBytes(1500 * androidx.media3.extractor.ts.TsExtractor.TS_PACKET_SIZE)
+            .setTsExtractorFlags(tsFlags)
+            .setTsExtractorTimestampSearchBytes(2000 * androidx.media3.extractor.ts.TsExtractor.TS_PACKET_SIZE)
             .setConstantBitrateSeekingEnabled(true)
 
         val mediaSourceFactory = DefaultMediaSourceFactory(httpDataSourceFactory, extractorsFactory)

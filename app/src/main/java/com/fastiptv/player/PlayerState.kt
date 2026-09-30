@@ -18,6 +18,13 @@ sealed interface PlayerState {
         val bufferPercentage: Int = 0
     ) : PlayerState
 
+    data class Reconnecting(
+        val streamId: Int,
+        val attempt: Int,
+        val maxAttempts: Int,
+        val message: String? = null
+    ) : PlayerState
+
     data class Error(
         val streamId: Int,
         val message: String,

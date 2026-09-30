@@ -253,6 +253,19 @@ class LiveTvViewModel @Inject constructor(
         }
     }
 
+    fun retry() {
+        val channel = _currentChannel.value
+        if (channel != null) {
+            _switchNotice.value = "Retrying ${channel.name}..."
+            val format = sessionManager.getCachedStreamFormat()
+            streamPlayer.playLiveStream(channel.id, format, channel.name)
+            fetchEpg(channel.id)
+            showBanner(3000L)
+        } else {
+            streamPlayer.retry()
+        }
+    }
+
     fun stopPlayer() {
         streamPlayer.stop()
     }

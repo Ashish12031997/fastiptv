@@ -442,18 +442,53 @@ fun PlayerScreen(
             }
         }
 
-        // Buffering / Loading Indicator
-        if (playerState is PlayerState.Buffering || playerState is PlayerState.Loading) {
+        // Buffering / Loading / Reconnecting Indicator
+        if (playerState is PlayerState.Buffering || playerState is PlayerState.Loading || playerState is PlayerState.Reconnecting) {
             Box(
                 modifier = Modifier
                     .fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    color = AccentBlue,
-                    modifier = Modifier.size(54.dp),
-                    strokeWidth = 4.dp
-                )
+                if (playerState is PlayerState.Reconnecting) {
+                    val rec = playerState as PlayerState.Reconnecting
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xE60F172A))
+                            .border(1.5.dp, Color(0xFFF59E0B), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 24.dp, vertical = 16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                color = Color(0xFFF59E0B),
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 3.dp
+                            )
+                            Column {
+                                Text(
+                                    text = "Reconnecting (${rec.attempt}/${rec.maxAttempts})...",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = rec.message ?: "Restoring connection...",
+                                    color = Color(0xFFCBD5E1),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    CircularProgressIndicator(
+                        color = AccentBlue,
+                        modifier = Modifier.size(54.dp),
+                        strokeWidth = 4.dp
+                    )
+                }
             }
         }
 

@@ -111,6 +111,11 @@ class PlayerViewModelTest {
             play()
         }
 
+        var retryCount: Int = 0
+        override fun retry() {
+            retryCount++
+        }
+
         override fun stop() {
             stopCount++
             isPlaying = false

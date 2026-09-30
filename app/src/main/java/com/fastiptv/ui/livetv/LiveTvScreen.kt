@@ -67,8 +67,13 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import com.fastiptv.ui.player.NuvioCenterTransientHud
 import com.fastiptv.domain.model.Category
 import com.fastiptv.domain.model.CategoryType
 import com.fastiptv.domain.model.Channel
@@ -199,9 +204,26 @@ fun LiveTvScreen(
                                 true
                             } else false
                         }
-                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
                             if (!isDrawerOpen) {
                                 viewModel.toggleBanner()
+                                true
+                            } else false
+                        }
+                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                            if (!isDrawerOpen) {
+                                if (playerState is PlayerState.Error) {
+                                    viewModel.retry()
+                                } else {
+                                    viewModel.toggleBanner()
+                                }
+                                true
+                            } else false
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                        KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                            if (playerState is PlayerState.Error) {
+                                viewModel.retry()
                                 true
                             } else false
                         }
@@ -231,13 +253,20 @@ fun LiveTvScreen(
                 .clickable { viewModel.toggleBanner() }
         )
 
-        // 2. Buffering / Loading Indicator
-        if (playerState is PlayerState.Buffering) {
+        // 2. Transient Channel Switch HUD (Center Pill)
+        NuvioCenterTransientHud(
+            noticeText = switchNotice,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        // 3. Buffering / Loading Indicator
+        if (playerState is PlayerState.Buffering || playerState is PlayerState.Loading) {
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color.Black.copy(alpha = 0.75f))
+                    .background(Color.Black.copy(alpha = 0.80f))
+                    .border(1.dp, GlassBorder, RoundedCornerShape(12.dp))
                     .padding(horizontal = 24.dp, vertical = 14.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -247,16 +276,145 @@ fun LiveTvScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                            .size(10.dp)
+                            .clip(RoundedCornerShape(5.dp))
                             .background(LiveRed)
                     )
                     Text(
-                        text = "Buffering Live Stream...",
+                        text = if (playerState is PlayerState.Loading) "Connecting Live Stream..." else "Buffering...",
                         color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
+                }
+            }
+        }
+
+        // 4. Reconnecting HUD
+        if (playerState is PlayerState.Reconnecting) {
+            val reconnecting = playerState as PlayerState.Reconnecting
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xE60F172A))
+                    .border(1.5.dp, Color(0xFFF59E0B), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 24.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFFF59E0B),
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.5.dp
+                    )
+                    Column {
+                        Text(
+                            text = "Reconnecting Live Stream (${reconnecting.attempt}/${reconnecting.maxAttempts})",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = reconnecting.message ?: "Restoring live connection...",
+                            color = Color(0xFFCBD5E1),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. Interactive TV Error State Overlay
+        if (playerState is PlayerState.Error) {
+            val error = playerState as PlayerState.Error
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xF20A0F1D))
+                    .border(1.5.dp, Color(0xFFEF4444).copy(alpha = 0.8f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 32.dp, vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Text(
+                            text = "Stream Connection Lost",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    Text(
+                        text = "${error.message} • Auto-reconnecting in 15s",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF94A3B8),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Card(
+                            onClick = { viewModel.retry() },
+                            colors = CardDefaults.colors(
+                                containerColor = AccentBlue,
+                                focusedContainerColor = Color(0xFF2563EB)
+                            ),
+                            border = CardDefaults.border(
+                                focusedBorder = Border(BorderStroke(2.dp, Color.White))
+                            ),
+                            shape = CardDefaults.shape(RoundedCornerShape(8.dp))
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Retry (Press OK)",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                        Card(
+                            onClick = { viewModel.nextChannel() },
+                            colors = CardDefaults.colors(
+                                containerColor = DarkSurface,
+                                focusedContainerColor = Color(0xFF334155)
+                            ),
+                            border = CardDefaults.border(
+                                border = Border(BorderStroke(1.dp, GlassBorder)),
+                                focusedBorder = Border(BorderStroke(2.dp, Color.White))
+                            ),
+                            shape = CardDefaults.shape(RoundedCornerShape(8.dp))
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Next Channel (▼)",
+                                    color = Color(0xFFE2E8F0),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

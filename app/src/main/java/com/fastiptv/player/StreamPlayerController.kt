@@ -20,6 +20,7 @@ interface StreamPlayerController {
     fun play()
     fun pause()
     fun resume()
+    fun retry()
     fun stop()
     fun release()
 }

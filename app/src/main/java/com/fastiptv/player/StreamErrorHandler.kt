@@ -78,7 +78,7 @@ class StreamErrorHandler @Inject constructor(
 
     override fun onRenderedFirstFrame() {
         _isFirstFrameRendered.value = true
-        if (player?.isPlaying == true || _playerState.value is PlayerState.Buffering || _playerState.value is PlayerState.Loading) {
+        if (player?.isPlaying == true || _playerState.value is PlayerState.Buffering || _playerState.value is PlayerState.Loading || _playerState.value is PlayerState.Reconnecting) {
             _playerState.value = PlayerState.Playing(currentStreamId, currentTitle)
         }
     }
@@ -92,7 +92,9 @@ class StreamErrorHandler @Inject constructor(
     override fun onPlaybackStateChanged(playbackState: Int) {
         when (playbackState) {
             Player.STATE_BUFFERING -> {
-                _playerState.value = PlayerState.Buffering(currentStreamId)
+                if (_playerState.value !is PlayerState.Reconnecting) {
+                    _playerState.value = PlayerState.Buffering(currentStreamId)
+                }
             }
             Player.STATE_READY -> {
                 if (player?.isPlaying == true) {
@@ -109,7 +111,7 @@ class StreamErrorHandler @Inject constructor(
     }
 
     override fun onPlayerError(error: PlaybackException) {
-        android.util.Log.e("FastIPTV", "onPlayerError: streamId=$currentStreamId, type=$currentStreamType, error=${error.message}", error)
+        android.util.Log.e("FastIPTV", "onPlayerError: streamId=$currentStreamId, type=$currentStreamType, errorCode=${error.errorCode}, error=${error.message}", error)
         val activePlayer = player ?: return
         recoveryJob?.cancel()
         recoveryJob = CoroutineScope(mainDispatcher).launch {
@@ -117,12 +119,43 @@ class StreamErrorHandler @Inject constructor(
         }
     }
 
+    fun manualRetry() {
+        val activePlayer = player ?: return
+        recoveryJob?.cancel()
+        recoveryJob = null
+        retryCount = 0
+        _playerState.value = PlayerState.Reconnecting(
+            streamId = currentStreamId,
+            attempt = 1,
+            maxAttempts = 3,
+            message = "Retrying stream..."
+        )
+        okHttpClient.connectionPool.evictAll()
+        activePlayer.prepare()
+        activePlayer.play()
+    }
+
     private suspend fun executeRecoveryPipeline(player: Player, error: PlaybackException) {
+        // Special case: Behind live window (common in HLS live streams)
+        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+            android.util.Log.w("FastIPTV", "Behind live window detected for streamId=$currentStreamId, snapping back to live edge")
+            _playerState.value = PlayerState.Buffering(currentStreamId)
+            player.seekToDefaultPosition()
+            player.prepare()
+            player.play()
+            return
+        }
+
         when {
             // Stage 1: Retry same URL (3 attempts with exponential backoff 1s -> 2s -> 4s)
             retryCount < 3 -> {
                 retryCount++
-                _playerState.value = PlayerState.Buffering(currentStreamId)
+                _playerState.value = PlayerState.Reconnecting(
+                    streamId = currentStreamId,
+                    attempt = retryCount,
+                    maxAttempts = 3,
+                    message = "Reconnecting stream (Attempt $retryCount/3)..."
+                )
                 val delayMs = 1000L * (1 shl (retryCount - 1))
                 delay(delayMs)
                 player.prepare()
@@ -132,7 +165,12 @@ class StreamErrorHandler @Inject constructor(
             // Stage 2: Switch stream format (.m3u8 <-> .ts) for live, or re-prepare
             retryCount == 3 -> {
                 retryCount++
-                _playerState.value = PlayerState.Buffering(currentStreamId)
+                _playerState.value = PlayerState.Reconnecting(
+                    streamId = currentStreamId,
+                    attempt = retryCount,
+                    maxAttempts = 5,
+                    message = "Switching format & reconnecting..."
+                )
                 if (currentStreamType == "live") {
                     currentFormat = if (currentFormat == "m3u8") "ts" else "m3u8"
                     val config = sessionManager.getCachedConfig()
@@ -157,17 +195,22 @@ class StreamErrorHandler @Inject constructor(
             // Stage 3: Fresh connection (flush connection pool and retry)
             retryCount == 4 -> {
                 retryCount++
-                _playerState.value = PlayerState.Buffering(currentStreamId)
+                _playerState.value = PlayerState.Reconnecting(
+                    streamId = currentStreamId,
+                    attempt = retryCount,
+                    maxAttempts = 5,
+                    message = "Resetting network connection..."
+                )
                 okHttpClient.connectionPool.evictAll()
                 delay(2000L)
                 player.prepare()
                 player.play()
             }
 
-            // Stage 4: Give up, notify user, auto-retry in 30s
+            // Stage 4: Give up, notify user, auto-retry in 15s
             else -> {
                 emitError(error, stage = 4)
-                delay(30_000L)
+                delay(15_000L)
                 retryCount = 0
                 player.prepare()
                 player.play()
@@ -176,7 +219,14 @@ class StreamErrorHandler @Inject constructor(
     }
 
     private fun emitError(error: PlaybackException, stage: Int) {
-        val message = error.message ?: "Stream playback failed"
+        val message = when (error.errorCode) {
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Network connection failed"
+            PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "Server returned HTTP error"
+            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "Hardware video decoder failed"
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED -> "Stream data corrupted"
+            else -> error.message ?: "Stream playback failed"
+        }
         _playerState.value = PlayerState.Error(
             streamId = currentStreamId,
             message = message,
